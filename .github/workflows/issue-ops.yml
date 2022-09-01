@@ -8,8 +8,8 @@ jobs:
     runs-on: ubuntu-latest
     if: contains(github.event.issue.labels.*.name, 'issueops')
     if: github.event_name == 'issue_comment' &&
-      (startsWith(github.event.comment.body, '/create-org') &&
-      contains(github.event.issue.labels.*.name, 'issueops'))
+      startsWith(github.event.comment.body, '/create-org') &&
+      contains(github.event.issue.labels.*.name, 'issueops')
     steps:
         
       - name: Print Context
