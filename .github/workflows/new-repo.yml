@@ -8,12 +8,15 @@ jobs:
   create-repo:
     name: Create new repo
     runs-on: ubuntu-latest
-    if: startsWith(github.event.comment.body, '/create-org') && 
-      contains(github.event.issue.labels.*.name, 'new-repo')
+    if: startsWith(github.event.comment.body, '/create-org')
 
     steps:
       - name: Check out scripts
         uses: actions/checkout@v3
+
+      - name: Dump GitHub context
+        id: github_context_step
+        run: echo '${{ toJSON(github) }}'
 
       - name: Parse issue body
         id: parse-issue-body
