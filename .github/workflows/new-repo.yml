@@ -33,13 +33,13 @@ jobs:
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           script: |
-            let newRepo = ${{ steps.parse-issue-body.outputs.repo-name }}
-            let templateRepo = ${{ steps.parse-issue-body.outputs.template-repository }}
-            let teams = ${{ steps.parse-issue-body.outputs.team-permissions }}
-            let enableIssue = ${{ steps.parse-issue-body.outputs.enable-issues }}
-            let enableProject = ${{ steps.parse-issue-body.outputs.enable-projects }}
-            let enableSquashMerge = ${{ steps.parse-issue-body.outputs.allow-squash-merge }}
-            let enableForking = ${{ steps.parse-issue-body.outputs.allow-forking }}
+            let newRepo = " + ${{ steps.parse-issue-body.outputs.repo-name }} + "
+            let templateRepo = " + ${{ steps.parse-issue-body.outputs.template-repository }} + "
+            let teams = " + ${{ steps.parse-issue-body.outputs.team-permissions }} + "
+            let enableIssue = " + ${{ steps.parse-issue-body.outputs.enable-issues }} + "
+            let enableProject = " + ${{ steps.parse-issue-body.outputs.enable-projects }} + "
+            let enableSquashMerge = " + ${{ steps.parse-issue-body.outputs.allow-squash-merge }} + "
+            let enableForking = " + ${{ steps.parse-issue-body.outputs.allow-forking }} + "
             
             console.log("New repo: " + newRepo + " Template Repo: " + templateRepo + " Teams: " + teams)
             
