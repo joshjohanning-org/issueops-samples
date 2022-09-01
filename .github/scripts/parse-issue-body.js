@@ -12,6 +12,8 @@ module.exports = ({context, core}) => {
         core.setOutput('rename-master', parsedIssueBody.groups.renameMaster)
         core.setOutput('has-lfs', parsedIssueBody.groups.hasLfs)
       }
+
+      print(parsedIssueBody.groups)
   
       return parsedIssueBody.groups
     }
