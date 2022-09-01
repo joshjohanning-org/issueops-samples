@@ -6,7 +6,6 @@ on:
 jobs:
   Create-Repo:
     runs-on: ubuntu-latest
-    if: contains(github.event.issue.labels.*.name, 'issueops')
     if: startsWith(github.event.comment.body, '/create-org') &&
       contains(github.event.issue.labels.*.name, 'issueops')
     steps:
