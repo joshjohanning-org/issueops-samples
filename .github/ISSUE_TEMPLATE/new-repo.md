@@ -21,7 +21,7 @@ Avengers
 ### Enable Project
 * [x]  Yes, I want to enable Projects
 
-### Allow Squash Merge`
+### Allow Squash Merge
 * [ ]  Yes, I want to allow squash merge
 
 ### Allow forking
