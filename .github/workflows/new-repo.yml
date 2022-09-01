@@ -45,7 +45,7 @@ jobs:
           gh api \
             --method POST \
             -H "Accept: application/vnd.github+json" \
-            /orgs/ORG/repos \
+            /orgs/${{ github.REPOSITORY_OWNER }}/repos \
             -f name='${{ steps.parse-issue-body.outputs.repo-name }}' \
           -F private=false \
           -F has_issues=$enableIssues \
