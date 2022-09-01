@@ -12,7 +12,7 @@ module.exports = async ({github, context}) => {
   
     The following has been parsed from your issue body:
 
-    The **repo name** is set to be: **\`${ repoPrefix }\`**
+    The **repo name** is set to be: **\`${ repoName }\`**
     The **target organization** is set to be: **\`${ targetOrganization }\`**
     Are we renaming **master** to **main**? **\`${ renameMaster }\`**
     Is there any **Git LFS** enabled? **\`${ hasLfs }\`**
