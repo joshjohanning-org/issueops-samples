@@ -42,7 +42,7 @@ jobs:
             commentBody = `😢 The issue body could not be parsed. Please open a new issue using an issue template.`
             await github.rest.issues.createComment({
               issue_number: ${{ github.event.issue.number }},
-              owner: ${{ github.REPOSITORY_OWNER }},
-              repo: ${{ github.event.repository.name }},
-              body: commentBody
+              owner: '${{ github.REPOSITORY_OWNER }}',
+              repo: '${{ github.event.repository.name }}',
+              body: commentBody.replace(/  +/g, '')
             })
