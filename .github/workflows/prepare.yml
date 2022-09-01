@@ -20,6 +20,12 @@ jobs:
       - name: Check out scripts
         uses: actions/checkout@v2
 
+      - name: Print Context
+        uses: actions/github-script@v5
+        with:
+          script: |
+            console.log(context)
+            
       - name: Post prepare message
         uses: actions/github-script@v5
         with:
