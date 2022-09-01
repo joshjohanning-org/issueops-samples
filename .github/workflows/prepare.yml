@@ -1,0 +1,28 @@
+# Parses migration issue and creates a comment with next step
+#
+
+name: New Repo (Prepare)
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  prepare:
+    name: Prepare Migration
+    runs-on: ubuntu-latest
+
+    if: github.event_name == 'issues' &&
+      (github.event.action == 'opened' || github.event.action == 'edited') &&
+      contains(github.event.issue.labels.*.name, 'new-repo')
+
+    steps:
+      - name: Check out scripts
+        uses: actions/checkout@v2
+
+      - name: Post prepare message
+        uses: actions/github-script@v5
+        with:
+          script: |
+            const options = { targetOrganization: '${{ github.REPOSITORY_OWNER }}' }
+            await require('./.github/scripts/prepare.js')({github, context, options})
