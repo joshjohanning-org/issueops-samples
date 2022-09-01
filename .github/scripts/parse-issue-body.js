@@ -1,6 +1,6 @@
 module.exports = ({context, core}) => {
     const issueBody = context.payload.issue.body
-    const parsedIssueBody = issueBody.match(/### Repo name\s+`(?<repoName>[^`]+)`\s+### Target organization\s+`(?<targetOrganization>[^`]+)`\s+### Rename master\s+(?<renameMaster>Yes|No)\s+### Git LFS\s+(?<hasLfs>Yes|No)/)
+    const parsedIssueBody = issueBody.match(/### Repo name\s+`(?<repoName>[^`]+)`\s+### Template Repository\s+`(?<templateRepository>[^`]+)`\s+### Rename master\s+(?<renameMaster>Yes|No)\s+### Git LFS\s+(?<hasLfs>Yes|No)/)
   
     if (parsedIssueBody) {
       if (core) {
@@ -13,7 +13,7 @@ module.exports = ({context, core}) => {
         // core.setOutput('has-lfs', parsedIssueBody.groups.hasLfs)
 
         core.setOutput('repo-name', parsedIssueBody.groups.repoName)
-        core.setOutput('target-organization', parsedIssueBody.groups.targetOrganization)
+        core.setOutput('template-repository', parsedIssueBody.groups.templateRepository)
         core.setOutput('rename-master', parsedIssueBody.groups.renameMaster)
         core.setOutput('has-lfs', parsedIssueBody.groups.hasLfs)
       }
