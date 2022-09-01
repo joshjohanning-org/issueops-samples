@@ -2,11 +2,11 @@ const parseIssueBody = require('./parse-issue-body.js')
 
 module.exports = async ({github, context}) => {
   // const { repositoryName, templateRepository, teamPermission, enableIssues, renameMaster, hasLfs } = parseIssueBody({context})
-  const { repoName, templateRepository, teamPermissions, enableIssues, allowForking } = parseIssueBody({context})
+  const { repoName, templateRepository, teamPermissions, enableIssues, enableProjects, allowForking, allowSquashMerge } = parseIssueBody({context})
 
   let commentBody
   
-  if (repoName && templateRepository && teamPermissions && enableIssues && allowForking) {
+  if (repoName && templateRepository && teamPermissions && enableIssues && enableProjects && allowForking && allowSquashMerge) {
   // if (repositoryName && templateRepository && teamPermission && enableIssues && renameMaster && hasLfs) {
     commentBody = `👋 Thank you for opening this migration issue.
   
@@ -16,7 +16,9 @@ module.exports = async ({github, context}) => {
     The **template repository** is set to be: **\`${ templateRepository }\`**
     The **team permissions** is set to be: **\`${ teamPermissions }\`**
     Are we **enabling issues**? **\`${ enableIssues }\`**
+    Are we **enabling projects**? **\`${ enableProjects }\`**
     Are we **allowing forking**? **\`${ allowForking }\`**
+    Are we **allowing squash merges**? **\`${ allowSquashMerge }\`**
   
     <details>
       <summary><b>Troubleshooting</b></summary>
