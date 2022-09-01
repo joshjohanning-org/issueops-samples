@@ -2,11 +2,11 @@ const parseIssueBody = require('./parse-issue-body.js')
 
 module.exports = async ({github, context}) => {
   // const { repositoryName, templateRepository, teamPermission, enableIssues, renameMaster, hasLfs } = parseIssueBody({context})
-  const { repoName, templateRepository, teamPermissions, renameMaster, hasLfs } = parseIssueBody({context})
+  const { repoName, templateRepository, teamPermissions, enableIssues, renameMaster, hasLfs } = parseIssueBody({context})
 
   let commentBody
   
-  if (repoName && templateRepository && teamPermissions && renameMaster && hasLfs) {
+  if (repoName && templateRepository && teamPermissions && enableIssues && renameMaster && hasLfs) {
   // if (repositoryName && templateRepository && teamPermission && enableIssues && renameMaster && hasLfs) {
     commentBody = `👋 Thank you for opening this migration issue.
   
@@ -15,6 +15,7 @@ module.exports = async ({github, context}) => {
     The **repo name** is set to be: **\`${ repoName }\`**
     The **template repository** is set to be: **\`${ templateRepository }\`**
     The **team permissions** is set to be: **\`${ teamPermissions }\`**
+    Are we **enabling issues**? **\`${ enableIssues }\`**
     Are we renaming **master** to **main**? **\`${ renameMaster }\`**
     Is there any **Git LFS** enabled? **\`${ hasLfs }\`**
   
