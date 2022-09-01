@@ -1,6 +1,6 @@
 module.exports = ({context, core}) => {
     const issueBody = context.payload.issue.body
-    const parsedIssueBody = issueBody.match(/### Repo name\s+`(?<repoName>[^`]+)`\s+### Template repository\s+`(?<templateRepository>[^`]+)`\s+### Team permissions\s+`(?<teamPermissions>[^`]+)`\s+### Enable issues\s+- [(?<enableIssues>[^\\]]+)]\s+### Rename master\s+(?<renameMaster>Yes|No)\s+### Git LFS\s+(?<hasLfs>Yes|No)/)
+    const parsedIssueBody = issueBody.match(/### Repo name\s+`(?<repoName>[^`]+)`\s+### Template repository\s+`(?<templateRepository>[^`]+)`\s+### Team permissions\s+`(?<teamPermissions>[^`]+)`\s+### Enable issues\s+- \\[(?<enableIssues>[^\\]]+)\\]\s+### Rename master\s+(?<renameMaster>Yes|No)\s+### Git LFS\s+(?<hasLfs>Yes|No)/)
   
     if (parsedIssueBody) {
       if (core) {
