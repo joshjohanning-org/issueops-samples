@@ -7,9 +7,7 @@ module.exports = async ({github, context}) => {
   if (repositoryName && templateRepository && teamPermission && enableIssues && renameMaster && hasLfs) {
     commentBody = `👋 Thank you for opening this migration issue.
   
-    The following **${repositories.trim().split('\n').length} repositories** have been parsed from your issue body:
-  
-    \`\`\`${repositories}\`\`\`
+    The following has been parsed from your issue body:
   
     The **repository name** is set to be: **\`${ repositoryName }\`**
     The **template repository** is set to be: **\`${ templateRepository }\`**

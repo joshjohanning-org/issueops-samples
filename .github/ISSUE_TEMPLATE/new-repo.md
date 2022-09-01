@@ -34,7 +34,7 @@ assignees: ''
 
 ### Enable Issues
 
-- [X]
+- [X] Yes
 
 ### Rename master
 
