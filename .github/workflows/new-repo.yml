@@ -8,9 +8,8 @@ jobs:
   create-repo:
     name: Create new repo
     runs-on: ubuntu-latest
-    if: github.event_name == 'issue_comment' &&
-      (startsWith(github.event.comment.body, '/create-org') &&
-      contains(github.event.issue.labels.*.name, 'new-repo'))
+    if: startsWith(github.event.comment.body, '/create-org' && 
+      contains(github.event.issue.labels.*.name, 'new-repo')
 
     steps:
       - name: Check out scripts
