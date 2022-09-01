@@ -1,6 +1,6 @@
 module.exports = ({context, core}) => {
     const issueBody = context.payload.issue.body
-    const parsedIssueBody = issueBody.match(/### Repo name\s+`(?<repoName>[^`]+)`\s+### Template repository\s+`(?<templateRepository>[^`]+)`\s+### Team permissions\s+`(?<teamPermissions>[^`]+)`\s+### Enable issues\s+- \[(?<enableIssues>[^[]+)\] .*\n*\s+### Enable project\s+- \[(?<enableProjects>[^[]+)\] .*\n*\s+### Allow forking\s+- \[(?<allowForking>[^[]+)\] .*\n*\s+### Allow squash merge\s+- \[(?<allowSquashMerge>[^[]+)\] .*\n*/)
+    const parsedIssueBody = issueBody.match(/### Repo name\s+`(?<repoName>[^`]+)`\s+### Template repository\s+`(?<templateRepository>[^`]+)`\s+### Team permissions\s+`(?<teamPermissions>[^`]+)`\s+### Enable issues\s+- \[(?<enableIssues>[^[]+)\] .*\n*\s+### Enable projects\s+- \[(?<enableProjects>[^[]+)\] .*\n*\s+### Allow forking\s+- \[(?<allowForking>[^[]+)\] .*\n*\s+### Allow squash merge\s+- \[(?<allowSquashMerge>[^[]+)\] .*\n*/)
   
     if (parsedIssueBody) {
       if (core) {
