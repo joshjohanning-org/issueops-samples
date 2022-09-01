@@ -1,13 +1,11 @@
 const parseIssueBody = require('./parse-issue-body.js')
 
 module.exports = async ({github, context}) => {
-  // const { repositoryName, templateRepository, teamPermission, enableIssues, renameMaster, hasLfs } = parseIssueBody({context})
   const { repoName, templateRepository, teamPermissions, enableIssues, enableProjects, allowForking, allowSquashMerge } = parseIssueBody({context})
 
   let commentBody
   
   if (repoName && templateRepository && teamPermissions && enableIssues && enableProjects && allowForking && allowSquashMerge) {
-  // if (repositoryName && templateRepository && teamPermission && enableIssues && renameMaster && hasLfs) {
     commentBody = `👋 Thank you for opening this migration issue.
   
     The following has been parsed from your issue body:
