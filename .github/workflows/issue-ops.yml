@@ -1,7 +1,7 @@
 name: Create repository with IssueOps
 on:
-  issues:
-    types: [opened]
+  issue_comment:
+    types: [created]
 
 jobs:
   Create-Repo:
