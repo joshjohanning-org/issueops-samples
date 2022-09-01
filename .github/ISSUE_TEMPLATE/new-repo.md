@@ -16,30 +16,34 @@ assignees: ''
 <!-- Repository Name: Enter in the name of the new repository name in between the ticks
 <!-- Template Repository: If applicable, enter in the name of the template repository in between the ticks - if none, use "" -->
 <!-- Team Permissions: Enter in the name of the team in between the ticks - if none, use "" -->
-<!-- Enable Issues: Whether to enable issues on the repo or not, if so, insert an "X" in between the brackets, like [X] -->
-<!-- Rename master: Rename master branch to main; Yes or No -->
-<!-- GIT LFS: Is there Git LFS here; Yes or No -->
+<!-- Enable Issues: Whether to enable issues on the repo or not, if so, insert an "x" in between the brackets, like [x] -->
+<!-- Enable Projects: Whether to enable projects on the repo or not, if so, insert an "x" in between the brackets, like [x] -->
+<!-- Allow Forking: Whether to allow forking of the repo or not, if so, insert an "x" in between the brackets, like [x] -->
+<!-- Allow Forking: Whether to allow squsah merges in the repo or not, if so, insert an "x" in between the brackets, like [x] -->
 
-### Repository Name
+### Repo name
 
-`enter-repo-name-here`
+`new-repo-name`
 
-### Template Repository
-
-`""`
-
-### Team Permissions
+### Template repository
 
 `""`
 
-### Enable Issues
+### Team permissions
+`test-team`
 
-- [X] Yes
+### Enable issues
 
-### Rename master
+- [ ] Yes, I want to enable Issues
 
-No
+### Enable projects
 
-### Git LFS
+- [x] Yes, I want to enable Projects
 
-Yes
+### Allow forking
+
+- [x] Yes, I want to allow squash merge
+
+### Allow squash merge
+
+- [x] Yes, I want to allow forking
