@@ -39,7 +39,7 @@ jobs:
         with:
           script: |
             let commentBody
-            commentBody = '😢 The issue body could not be parsed. Please open a new issue using an issue template.'
+            commentBody = `😢 The issue body could not be parsed. Please open a new issue using an issue template.`
             await github.rest.issues.createComment({
               issue_number: ${{ github.event.issue.number }},
               owner: ${{ github.REPOSITORY_OWNER }},
