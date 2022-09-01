@@ -5,7 +5,6 @@ title: 'Create New Repo - <Repo Name>'
 labels: 'issueops'
 assignees: ''
 ---
-
 ### New Repository Name
 new-repo-from-github-universe
 
