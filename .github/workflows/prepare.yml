@@ -35,7 +35,7 @@ jobs:
       
       - run: cat parsed-issue.json
       
-      - run: echo ${{ steps.issue-parser.outputs.issueparser_repo_name }}
+      - run: echo "${{ steps.issue-parser.outputs.issueparser_repo_name }}"
 
       - name: Post prepare message
         uses: actions/github-script@v5
