@@ -26,6 +26,13 @@ jobs:
           script: |
             console.log(context)
             
+      - uses: stefanbuck/github-issue-parser@v2
+        id: issue-parser
+        # with:
+          # template-path: .github/ISSUE_TEMPLATE/bug-report.yml
+
+      - run: echo '${{ steps.issue-parser.outputs.jsonString }}' > bug-details.json
+
       - name: Post prepare message
         uses: actions/github-script@v5
         with:
