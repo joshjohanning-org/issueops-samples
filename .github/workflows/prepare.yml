@@ -31,7 +31,11 @@ jobs:
         # with:
           # template-path: .github/ISSUE_TEMPLATE/bug-report.yml
 
-      - run: echo '${{ steps.issue-parser.outputs.jsonString }}' > bug-details.json
+      - run: echo '${{ steps.issue-parser.outputs.jsonString }}' > parsed-issue.json
+      
+      - run: cat parsed-issue.json
+      
+      - run: echo ${{ steps.issue-parser.outputs.repo_name }}
 
       - name: Post prepare message
         uses: actions/github-script@v5
