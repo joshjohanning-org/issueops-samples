@@ -28,25 +28,36 @@ jobs:
 
       - run: echo ${{ steps.parse-issue-body.outputs.repo-name }}
 
-      - name: do things
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: |
-          if [ $(echo ${{ steps.parse-issue-body.outputs.enable-issues }} |  tr '[:lower:]' '[:upper:]') = "X" ]; then enableIssues=true; else enableIssues=false; fi
-          if [ $(echo ${{ steps.parse-issue-body.outputs.enable-projects }} |  tr '[:lower:]' '[:upper:]') = "X" ]; then enableProjects=true; else enableProjects=false; fi
-          if [ $(echo ${{ steps.parse-issue-body.outputs.allow-squash-merge }} |  tr '[:lower:]' '[:upper:]') = "X" ]; then allowSquashMerge=true; else allowSquashMerge=false; fi
-          if [ $(echo ${{ steps.parse-issue-body.outputs.allow-forking }} |  tr '[:lower:]' '[:upper:]') = "X" ]; then allowForking=true; else allowForking=false; fi
+      - uses: stefanbuck/github-issue-parser@v2
+        id: issue-parser
+        # with:
+          # template-path: .github/ISSUE_TEMPLATE/bug-report.yml
 
-          echo "enable issues = $enableIssues"
-          echo "enable projects = $enableProjects"
-          echo "allow squash merge = $allowSquashMerge"
-          echo "allow forking = $allowForking"
+      - run: echo '${{ steps.issue-parser.outputs.jsonString }}' > parsed-issue.json
+      
+      - run: cat parsed-issue.json
+      
+      - run: echo "${{ steps.issue-parser.outputs.issueparser_repo_name }}"
+      
+      # - name: do things
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      #   run: |
+      #     if [ $(echo ${{ steps.parse-issue-body.outputs.enable-issues }} |  tr '[:lower:]' '[:upper:]') = "X" ]; then enableIssues=true; else enableIssues=false; fi
+      #     if [ $(echo ${{ steps.parse-issue-body.outputs.enable-projects }} |  tr '[:lower:]' '[:upper:]') = "X" ]; then enableProjects=true; else enableProjects=false; fi
+      #     if [ $(echo ${{ steps.parse-issue-body.outputs.allow-squash-merge }} |  tr '[:lower:]' '[:upper:]') = "X" ]; then allowSquashMerge=true; else allowSquashMerge=false; fi
+      #     if [ $(echo ${{ steps.parse-issue-body.outputs.allow-forking }} |  tr '[:lower:]' '[:upper:]') = "X" ]; then allowForking=true; else allowForking=false; fi
 
-          gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            /orgs/${{ github.REPOSITORY_OWNER }}/repos \
-            -f name='${{ steps.parse-issue-body.outputs.repo-name }}' \
-          -F private=false \
-          -F has_issues=$enableIssues \
-          -F has_projects=$enableProjects
+      #     echo "enable issues = $enableIssues"
+      #     echo "enable projects = $enableProjects"
+      #     echo "allow squash merge = $allowSquashMerge"
+      #     echo "allow forking = $allowForking"
+
+      #     gh api \
+      #       --method POST \
+      #       -H "Accept: application/vnd.github+json" \
+      #       /orgs/${{ github.REPOSITORY_OWNER }}/repos \
+      #       -f name='${{ steps.parse-issue-body.outputs.repo-name }}' \
+      #     -F private=false \
+      #     -F has_issues=$enableIssues \
+      #     -F has_projects=$enableProjects
