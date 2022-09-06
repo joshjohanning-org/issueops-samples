@@ -33,12 +33,12 @@ jobs:
         # with:
           # template-path: .github/ISSUE_TEMPLATE/bug-report.yml
 
-      - run: echo '${{ steps.issue-parser.outputs.jsonString }}' > parsed-issue.json
+      - run: echo '${{ steps.issue-parser.outputs.jsonString }}'
       
       - run: cat parsed-issue.json
       
       - run: echo "${{ steps.issue-parser.outputs.issueparser_repo_name }}"
-      
+
       # - name: do things
       #   env:
       #     GH_TOKEN: ${{ secrets.GH_TOKEN }}
