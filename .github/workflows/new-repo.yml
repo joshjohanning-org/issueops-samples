@@ -1,63 +1,42 @@
-name: Create new repo
-
+name: Create repository with IssueOps
 on:
   issue_comment:
     types: [created]
 
 jobs:
-  create-repo:
-    name: Create new repo
+  Create-Repo:
     runs-on: ubuntu-latest
-    if: startsWith(github.event.comment.body, '/create-repo') &&
-      contains(github.event.issue.labels.*.name, 'new-repo')
-
+    if: github.event_name == 'issue_comment' &&
+      (startsWith(github.event.comment.body, '/create-repo') &&
+      contains(github.event.issue.labels.*.name, 'new-repo'))
     steps:
-      - name: Check out scripts
-        uses: actions/checkout@v3
-
-      - name: Dump GitHub context
-        id: github_context_step
-        run: echo '${{ toJSON(github) }}'
         
-      - name: Parse issue body
-        id: parse-issue-body
-        uses: actions/github-script@v5
-        with:
-          script: |
-            require('./.github/scripts/parse-issue-body.js')({context, core})
+    - name: Dump GitHub context
+      env:
+        GITHUB_CONTEXT: ${{ toJSON(github) }}
+      run: echo "$GITHUB_CONTEXT"
 
-      - run: echo ${{ steps.parse-issue-body.outputs.repo-name }}
+    - uses: stefanbuck/github-issue-parser@v2
+      id: issue-parser
 
-      - uses: stefanbuck/github-issue-parser@v2
-        id: issue-parser
-        # with:
-          # template-path: .github/ISSUE_TEMPLATE/bug-report.yml
+    - name: create repo
+      env: 
+        GH_TOKEN: ${{secrets.GH_ADMIN_TOKEN}}
+      run: |  
+        echo "repo name = ${{ steps.issue-parser.outputs.issueparser_repo_name }}"
+        echo "team write permissions = ${{ steps.issue-parser.outputs.issueparser_team_write_permissions }}"
+        echo "team admin permissions = ${{ steps.issue-parser.outputs.issueparser_team_admin_permissions }}"
+        echo "enable issues = ${{ steps.issue-parser.outputs.issueparser_yes_i_want_to_enable_issues }}"
+        echo "enable projects = ${{ steps.issue-parser.outputs.issueparser_yes_i_want_to_enable_projects }}"
 
-      - run: echo '${{ steps.issue-parser.outputs.jsonString }}'
-      
-      - run: cat parsed-issue.json
-      
-      - run: echo "${{ steps.issue-parser.outputs.issueparser_repo_name }}"
-
-      # - name: do things
-      #   env:
-      #     GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      #   run: |
-      #     if [ $(echo ${{ steps.parse-issue-body.outputs.enable-issues }} |  tr '[:lower:]' '[:upper:]') = "X" ]; then enableIssues=true; else enableIssues=false; fi
-      #     if [ $(echo ${{ steps.parse-issue-body.outputs.enable-projects }} |  tr '[:lower:]' '[:upper:]') = "X" ]; then enableProjects=true; else enableProjects=false; fi
-      #     if [ $(echo ${{ steps.parse-issue-body.outputs.allow-squash-merge }} |  tr '[:lower:]' '[:upper:]') = "X" ]; then allowSquashMerge=true; else allowSquashMerge=false; fi
-      #     if [ $(echo ${{ steps.parse-issue-body.outputs.allow-forking }} |  tr '[:lower:]' '[:upper:]') = "X" ]; then allowForking=true; else allowForking=false; fi
-
-      #     echo "enable issues = $enableIssues"
-      #     echo "enable projects = $enableProjects"
-      #     echo "allow squash merge = $allowSquashMerge"
-      #     echo "allow forking = $allowForking"
-
-      #     gh api \
-      #       --method POST \
-      #       -H "Accept: application/vnd.github+json" \
-      #       /orgs/${{ github.REPOSITORY_OWNER }}/repos \
-      #       -f name='${{ steps.parse-issue-body.outputs.repo-name }}' \
-      #     -F private=false \
-      #     -F has_issues=$enableIssues \
-      #     -F has_projects=$enableProjects
+        gh api \
+          --method POST \
+          -H "Accept: application/vnd.github+json" \
+          /orgs/${{ github.REPOSITORY_OWNER }}/repos \
+          -f name='${{ steps.issue-parser.outputs.issueparser_repo_name }}' \
+          -F visibility=private \
+          -F has_issues=${{ steps.issue-parser.outputs.issueparser_yes_i_want_to_enable_issues }} \
+          -F has_projects=${{ steps.issue-parser.outputs.issueparser_yes_i_want_to_enable_projects }}
+        
+        # to do - add write/admin team to repo
+        # https://docs.github.com/en/rest/teams/teams#add-or-update-team-repository-permissions

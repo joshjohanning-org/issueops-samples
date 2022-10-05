@@ -1,7 +1,7 @@
 # Parses migration issue and creates a comment with next step
 #
 
-name: New Repo (Prepare)
+name: Prepare
 
 on:
   issues:
@@ -17,33 +17,46 @@ jobs:
       contains(github.event.issue.labels.*.name, 'new-repo')
 
     steps:
-      - name: Check out scripts
-        uses: actions/checkout@v3
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJSON(github) }}
+        run: echo "$GITHUB_CONTEXT"
+        
+      # - name: Dump user context
+      #   run: echo '${{ toJSON(github.event.issue.user) }}'
 
-      - name: Print Context
-        uses: actions/github-script@v5
-        with:
-          script: |
-            console.log(context)
-            
       - uses: stefanbuck/github-issue-parser@v2
         id: issue-parser
-        # with:
-          # template-path: .github/ISSUE_TEMPLATE/bug-report.yml
-
-      - run: echo '${{ steps.issue-parser.outputs.jsonString }}' > parsed-issue.json
-      
-      - run: cat parsed-issue.json
-      
-      - run: echo "${{ steps.issue-parser.outputs.issueparser_repo_name }}"
 
       - name: Post prepare message
         uses: actions/github-script@v5
         with:
           script: |
-            const options = { targetOrganization: '${{ github.REPOSITORY_OWNER }}' }
-            await require('./.github/scripts/prepare.js')({github, context, options})
+            let commentBody
+            commentBody = `👋 Thank you for opening this new repo issue.
 
+            The following has been parsed from your issue body:
+            - The **repo name** is set to be: **\`${{ steps.issue-parser.outputs.issueparser_repo_name }}\`**
+            - The **team write permissions** is set to be: **\`${{ steps.issue-parser.outputs.issueparser_team_write_permissions }}\`**
+            - The **team admin permissions** is set to be: **\`${{ steps.issue-parser.outputs.issueparser_team_admin_permissions }}\`**
+            - Enable Issues?: **\`${{ steps.issue-parser.outputs.issueparser_yes_i_want_to_enable_issues }}\`**
+            - Enable Projects?: **\`${{ steps.issue-parser.outputs.issueparser_yes_i_want_to_enable_projects }}\`**
+
+            ## Create the repo
+
+            Add the following comment to this issue in order to create the org:
+          
+            \`\`\`
+            /create-repo
+            \`\`\`
+            `
+
+            await github.rest.issues.createComment({
+              issue_number: ${{ github.event.issue.number }},
+              owner: '${{ github.REPOSITORY_OWNER }}',
+              repo: '${{ github.event.repository.name }}',
+              body: commentBody.replace(/  +/g, '')
+            })
       - name: Post failure message
         if: ${{ failure() }}
         uses: actions/github-script@v5
