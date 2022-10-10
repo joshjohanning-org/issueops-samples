@@ -44,7 +44,7 @@ jobs:
 
             ## Create the repo
 
-            Add the following comment to this issue in order to create the org:
+            Add the following comment to this issue in order to create the repo:
           
             \`\`\`
             /create-repo
