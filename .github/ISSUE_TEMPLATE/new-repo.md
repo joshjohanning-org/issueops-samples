@@ -14,8 +14,8 @@ assignees: ''
 <!-- FIELD HELP -->
 <!-- Repository Name: Enter in the name of the new repository name
 <!-- Team Permissions: Enter in the name of the contributor team -->
-<!-- Enable Issues: Whether to enable issues on the repo or not, if so, insert an "x" in between the brackets, like [x] -->
-<!-- Enable Projects: Whether to enable projects on the repo or not, if so, insert an "x" in between the brackets, like [x] -->
+<!-- Enable Issues: Whether to enable issues on the repo or not, if so, insert an "x" in between the brackets, like: [x]   otherwise for no, use: [ ] -->
+<!-- Enable Projects: Whether to enable projects on the repo or not, if so, insert an "x" in between the brackets, like: [x]   otherwise for no, use: [ ] -->
 
 ### Repo name
 
