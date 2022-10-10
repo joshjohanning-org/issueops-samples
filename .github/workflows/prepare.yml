@@ -29,7 +29,7 @@ jobs:
         id: issue-parser
 
       - name: Post prepare message
-        uses: actions/github-script@v5
+        uses: actions/github-script@v6
         with:
           script: |
             let commentBody
@@ -59,7 +59,7 @@ jobs:
             })
       - name: Post failure message
         if: ${{ failure() }}
-        uses: actions/github-script@v5
+        uses: actions/github-script@v6
         with:
           script: |
             let commentBody
