@@ -8,42 +8,26 @@ assignees: ''
 ---
 
 <!-- INSTRUCTIONS -->
-<!-- fill out the information under each of the "###" headings -->
-<!-- do not change the headings, ticks, or code blocks -->
-<!-- do not add text between the ### heading and the input -->
+<!-- 1. fill out the information under each of the "###" headings -->
+<!-- 2. do not change the headings, or line spaces -->
 
 <!-- FIELD HELP -->
-<!-- Repository Name: Enter in the name of the new repository name in between the ticks
-<!-- Template Repository: If applicable, enter in the name of the template repository in between the ticks - if none, use "" -->
-<!-- Team Permissions: Enter in the name of the team in between the ticks - if none, use "" -->
+<!-- Repository Name: Enter in the name of the new repository name
+<!-- Team Permissions: Enter in the name of the contributor team -->
 <!-- Enable Issues: Whether to enable issues on the repo or not, if so, insert an "x" in between the brackets, like [x] -->
 <!-- Enable Projects: Whether to enable projects on the repo or not, if so, insert an "x" in between the brackets, like [x] -->
-<!-- Allow Forking: Whether to allow forking of the repo or not, if so, insert an "x" in between the brackets, like [x] -->
-<!-- Allow Forking: Whether to allow squsah merges in the repo or not, if so, insert an "x" in between the brackets, like [x] -->
 
 ### Repo name
 
-`new-repo-name`
-
-### Template repository
-
-`""`
+new-repo-name
 
 ### Team permissions
-`test-team`
+test-team
 
 ### Enable issues
 
-- [ ] Yes, I want to enable Issues
+- [X] Yes, I want to enable Issues
 
 ### Enable projects
 
 - [x] Yes, I want to enable Projects
-
-### Allow forking
-
-- [x] Yes, I want to allow squash merge
-
-### Allow squash merge
-
-- [x] Yes, I want to allow forking
