@@ -21,9 +21,6 @@ jobs:
         env:
           GITHUB_CONTEXT: ${{ toJSON(github) }}
         run: echo "$GITHUB_CONTEXT"
-        
-      # - name: Dump user context
-      #   run: echo '${{ toJSON(github.event.issue.user) }}'
 
       - uses: stefanbuck/github-issue-parser@v2
         id: issue-parser
