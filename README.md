@@ -5,6 +5,7 @@
 - issue template and issue parsing
 - posting back comment to repo with instructions after initial issue creation
 - creating repo using `gh api`
+- adds `created` issue label when the repo has been created successfully
 - to do: add team permissions to repo
 
 ## Setup
