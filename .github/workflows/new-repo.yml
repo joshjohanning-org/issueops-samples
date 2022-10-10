@@ -40,3 +40,35 @@ jobs:
         
         # to do - add write/admin team to repo
         # https://docs.github.com/en/rest/teams/teams#add-or-update-team-repository-permissions
+
+      - name: Post successful message
+        uses: actions/github-script@v5
+        if: ${{ success() }}
+        with:
+          script: |
+            let commentBody
+            commentBody = `🚀 New repo created successfully
+
+            Visit the following link for the repo: [https://github.com/orgs/${{ github.REPOSITORY_OWNER }}/${{ steps.issue-parser.outputs.issueparser_repo_name }}](https://github.com/orgs/${{ github.REPOSITORY_OWNER }}/${{ steps.issue-parser.outputs.issueparser_repo_name }})
+            `
+
+            await github.rest.issues.createComment({
+              issue_number: ${{ github.event.issue.number }},
+              owner: '${{ github.REPOSITORY_OWNER }}',
+              repo: '${{ github.event.repository.name }}',
+              body: commentBody.replace(/  +/g, '')
+            })
+
+      - name: Post failure message
+        if: ${{ failure() }}
+        uses: actions/github-script@v5
+        with:
+          script: |
+            let commentBody
+            commentBody = `😢 The new repo could not be created. Please review the [action logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
+            await github.rest.issues.createComment({
+              issue_number: ${{ github.event.issue.number }},
+              owner: '${{ github.REPOSITORY_OWNER }}',
+              repo: '${{ github.event.repository.name }}',
+              body: commentBody.replace(/  +/g, '')
+            })

@@ -57,6 +57,7 @@ jobs:
               repo: '${{ github.event.repository.name }}',
               body: commentBody.replace(/  +/g, '')
             })
+            
       - name: Post failure message
         if: ${{ failure() }}
         uses: actions/github-script@v6
