@@ -1,7 +1,7 @@
 ---
 name: New Repo
 about: Create a new repo
-title: 'New Repo - <enter-repo-name-here>'
+title: '<enter-repo-name-here>'
 labels: 'new-repo'
 assignees: ''
 
