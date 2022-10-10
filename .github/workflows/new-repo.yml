@@ -49,7 +49,7 @@ jobs:
           let commentBody
           commentBody = `🚀 New repo created successfully
 
-          Visit the following link for the repo: [https://github.com/orgs/${{ github.REPOSITORY_OWNER }}/${{ steps.issue-parser.outputs.issueparser_repo_name }}](https://github.com/orgs/${{ github.REPOSITORY_OWNER }}/${{ steps.issue-parser.outputs.issueparser_repo_name }})
+          Visit the following link for the repo: [https://github.com/${{ github.REPOSITORY_OWNER }}/${{ steps.issue-parser.outputs.issueparser_repo_name }}](https://github.com/${{ github.REPOSITORY_OWNER }}/${{ steps.issue-parser.outputs.issueparser_repo_name }})
           `
 
           await github.rest.issues.createComment({
