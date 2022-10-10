@@ -41,11 +41,11 @@ jobs:
         # to do - add write/admin team to repo
         # https://docs.github.com/en/rest/teams/teams#add-or-update-team-repository-permissions
 
-    - name: Add done label
+    - name: Add created label
       if: ${{ success() }}
       env: 
         GH_TOKEN: ${{ github.token }}
-      run: gh issue edit ${{ github.event.issue.number }} --add-label done -R ${{ github.repository }}
+      run: gh issue edit ${{ github.event.issue.number }} --add-label created -R ${{ github.repository }}
 
     - name: Post successful message
       uses: actions/github-script@v5
