@@ -21,8 +21,13 @@ assignees: ''
 
 new-repo-name
 
-### Team permissions
-test-team
+### Team Write Permissions
+
+dev-team
+
+### Team Admin Permissions
+
+admin-team
 
 ### Enable issues
 

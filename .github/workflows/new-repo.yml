@@ -21,7 +21,7 @@ jobs:
 
     - name: create repo
       env: 
-        GH_TOKEN: ${{secrets.GH_ADMIN_TOKEN}}
+        GH_TOKEN: ${{secrets.ADMIN_TOKEN}}
       run: |  
         echo "repo name = ${{ steps.issue-parser.outputs.issueparser_repo_name }}"
         echo "team write permissions = ${{ steps.issue-parser.outputs.issueparser_team_write_permissions }}"
