@@ -9,8 +9,8 @@ jobs:
     if: github.event_name == 'issue_comment' &&
       (startsWith(github.event.comment.body, '/create-repo') &&
       contains(github.event.issue.labels.*.name, 'new-repo'))
+
     steps:
-        
     - name: Dump GitHub context
       env:
         GITHUB_CONTEXT: ${{ toJSON(github) }}
@@ -41,6 +41,12 @@ jobs:
         # to do - add write/admin team to repo
         # https://docs.github.com/en/rest/teams/teams#add-or-update-team-repository-permissions
 
+    - name: Add done label
+      if: ${{ success() }}
+      env: 
+        GH_TOKEN: ${{ github.token }}
+      run: gh repo --add-label done -R ${{ github.repository }}
+
     - name: Post successful message
       uses: actions/github-script@v5
       if: ${{ success() }}
@@ -49,7 +55,7 @@ jobs:
           let commentBody
           commentBody = `🚀 New repo created successfully
 
-          Visit the following link for the repo: [https://github.com/${{ github.REPOSITORY_OWNER }}/${{ steps.issue-parser.outputs.issueparser_repo_name }}](https://github.com/${{ github.REPOSITORY_OWNER }}/${{ steps.issue-parser.outputs.issueparser_repo_name }})
+          Visit the following link for the repo: [https://github.com/${{ github.repository_owner }}/${{ steps.issue-parser.outputs.issueparser_repo_name }}](https://github.com/${{ github.repository_owner }}/${{ steps.issue-parser.outputs.issueparser_repo_name }})
           `
 
           await github.rest.issues.createComment({
