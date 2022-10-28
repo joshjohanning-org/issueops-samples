@@ -22,7 +22,7 @@ jobs:
           GITHUB_CONTEXT: ${{ toJSON(github) }}
         run: echo "$GITHUB_CONTEXT"
 
-      - uses: stefanbuck/github-issue-parser@v2
+      - uses: stefanbuck/github-issue-parser@b13189b2d6c488f787245fa74d03f44a7f7643ef
         id: issue-parser
 
       - name: Post prepare message
