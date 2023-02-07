@@ -13,10 +13,12 @@ body:
     attributes:
       label: Team Write Permissions
       description: Enter in the name of the team with write access
+      placeholder: dev-team
   - type: textarea
     attributes:
       label: Team Admin Permissions
       description: Enter in the name of the team with admin access
+      placeholder: admin-team
   - type: dropdown
     attributes:
       label: Enable issues
