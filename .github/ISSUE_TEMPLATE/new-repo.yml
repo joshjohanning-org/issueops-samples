@@ -15,9 +15,9 @@ body:
       label: Repo visibility
       description: Please select the visibility for the new repository
       options:
-        - Private
-        - Internal
-        - Public
+        - private
+        - internal
+        - public
     validations:
       required: true
   - type: textarea
