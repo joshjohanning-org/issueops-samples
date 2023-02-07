@@ -22,8 +22,8 @@ body:
       label: Enable issues
       description: Whether to enable issues on the repo or not
       options:
-        - [X] Yes, I want to enable Issues
-        - [ ] Yes, I want to enable Issues
+        - '- [X] Yes, I want to enable Issues'
+        - '- [ ] Yes, I want to enable Issues'
     validations:
       required: true
   - type: dropdown
@@ -31,7 +31,7 @@ body:
       label: Enable projects
       description: Whether to enable projects on the repo or not
       options:
-        - [X] Yes, I want to enable Projects
-        - [ ] Yes, I want to enable Projects
+        - ' - [X] Yes, I want to enable Projects'
+        - ' - [ ] Yes, I want to enable Projects'
     validations:
       required: true
