@@ -1,0 +1,37 @@
+name: New Repo (YML issue template) (work in progress)
+description: Create a new repo with IssueOps
+title: "<enter-repo-name-here>"
+labels: ["new-repo"]
+body:
+  - type: textarea
+    attributes:
+      label: Repo name
+      description: Enter in the name of the new repository name
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Team Write Permissions
+      description: Enter in the name of the team with write access
+  - type: textarea
+    attributes:
+      label: Team Admin Permissions
+      description: Enter in the name of the team with admin access
+  - type: dropdown
+    attributes:
+      label: Enable issues
+      description: Whether to enable issues on the repo or not
+      options:
+        - [X] Yes, I want to enable Issues
+        - [ ] Yes, I want to enable Issues
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Enable projects
+      description: Whether to enable projects on the repo or not
+      options:
+        - [X] Yes, I want to enable Projects
+        - [ ] Yes, I want to enable Projects
+    validations:
+      required: true
