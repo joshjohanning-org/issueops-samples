@@ -6,8 +6,18 @@ body:
   - type: textarea
     attributes:
       label: Repo name
-      description: Enter in the name of the new repository name
+      description: Enter in the name of the new repository
       placeholder: <enter-repo-name-here>
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Repo visibility
+      description: Please select the visibility for the new repository
+      options:
+        - Private
+        - Internal
+        - Public
     validations:
       required: true
   - type: textarea

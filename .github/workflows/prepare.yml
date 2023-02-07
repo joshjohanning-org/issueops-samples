@@ -34,6 +34,7 @@ jobs:
 
             The following has been parsed from your issue body:
             - The **repo name** is set to be: **\`${{ steps.issue-parser.outputs.issueparser_repo_name }}\`**
+            - The **repo visibility** is set to be: **\`${{ steps.issue-parser.outputs.issueparser_repo_visibility }}\`**
             - The **team write permissions** is set to be: **\`${{ steps.issue-parser.outputs.issueparser_team_write_permissions }}\`**
             - The **team admin permissions** is set to be: **\`${{ steps.issue-parser.outputs.issueparser_team_admin_permissions }}\`**
             - Enable Issues?: **\`${{ steps.issue-parser.outputs.issueparser_yes_i_want_to_enable_issues }}\`**

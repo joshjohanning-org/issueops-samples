@@ -24,6 +24,7 @@ jobs:
         GH_TOKEN: ${{secrets.ADMIN_TOKEN}}
       run: |  
         echo "repo name = ${{ steps.issue-parser.outputs.issueparser_repo_name }}"
+        echo "repo visibility = ${{ steps.issue-parser.outputs.issueparser_repo_visibility }}"
         echo "team write permissions = ${{ steps.issue-parser.outputs.issueparser_team_write_permissions }}"
         echo "team admin permissions = ${{ steps.issue-parser.outputs.issueparser_team_admin_permissions }}"
         echo "enable issues = ${{ steps.issue-parser.outputs.issueparser_yes_i_want_to_enable_issues }}"
@@ -34,7 +35,7 @@ jobs:
           -H "Accept: application/vnd.github+json" \
           /orgs/${{ github.REPOSITORY_OWNER }}/repos \
           -f name='${{ steps.issue-parser.outputs.issueparser_repo_name }}' \
-          -F visibility=private \
+          -F visibility=${{ steps.issue-parser.outputs.issueparser_repo_visibility }} \
           -F has_issues=${{ steps.issue-parser.outputs.issueparser_yes_i_want_to_enable_issues }} \
           -F has_projects=${{ steps.issue-parser.outputs.issueparser_yes_i_want_to_enable_projects }}
         
