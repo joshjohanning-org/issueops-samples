@@ -38,8 +38,11 @@ jobs:
           -F has_issues=${{ steps.issue-parser.outputs.issueparser_yes_i_want_to_enable_issues }} \
           -F has_projects=${{ steps.issue-parser.outputs.issueparser_yes_i_want_to_enable_projects }}
         
-        # to do - add write/admin team to repo
-        # https://docs.github.com/en/rest/teams/teams#add-or-update-team-repository-permissions
+        echo "adding write team: $team ..."
+        if ! gh api --method PUT /orgs/${{ github.REPOSITORY_OWNER }}/teams/${{ steps.issue-parser.outputs.issueparser_team_write_permissions }}/repos/${{ github.REPOSITORY_OWNER }}/${{ steps.issue-parser.outputs.issueparser_repo_name }} -f permission='push' ; then echo "" && error=1 && echo "::notice::write team ${{ steps.issue-parser.outputs.issueparser_team_write_permissions }} wasn't added to ${{ steps.issue-parser.outputs.issueparser_repo_name }}" ; fi
+        
+        echo "adding admin team: $team ..."
+        if ! gh api --method PUT /orgs/${{ github.REPOSITORY_OWNER }}/teams/${{ steps.issue-parser.outputs.issueparser_team_write_permissions }}/repos/${{ github.REPOSITORY_OWNER }}/${{ steps.issue-parser.outputs.issueparser_repo_name }} -f permission='admin' ; then echo "" && error=1 && echo "::notice::admin team ${{ steps.issue-parser.outputs.issueparser_team_admin_permissions }} wasn't added to ${{ steps.issue-parser.outputs.issueparser_repo_name }}" ; fi
 
     - name: Add created label
       if: ${{ success() }}
@@ -48,7 +51,7 @@ jobs:
       run: gh issue edit ${{ github.event.issue.number }} --add-label created -R ${{ github.repository }}
 
     - name: Post successful message
-      uses: actions/github-script@v5
+      uses: actions/github-script@v6
       if: ${{ success() }}
       with:
         script: |
@@ -67,7 +70,7 @@ jobs:
 
     - name: Post failure message
       if: ${{ failure() }}
-      uses: actions/github-script@v5
+      uses: actions/github-script@v6
       with:
         script: |
           let commentBody
