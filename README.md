@@ -15,7 +15,7 @@
 
 ## Example Issue
 
-This contains the request and processing messages: https://github.com/joshjohanning-org/new-repo-issueops/issues/27
+This contains the request and processing messages: https://github.com/joshjohanning-org/new-repo-issueops/issues/35
 
 ## Notes
 
