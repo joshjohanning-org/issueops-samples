@@ -83,6 +83,7 @@ jobs:
         uses: actions/github-script@v6
         if: ${{ success() }}
         with:
+          github-token: ${{ steps.app-token.outputs.token }}
           script: |
             let commentBody
             commentBody = `🚀 New repo created successfully
