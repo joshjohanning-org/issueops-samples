@@ -22,8 +22,16 @@ jobs:
           GITHUB_CONTEXT: ${{ toJSON(github) }}
         run: echo "$GITHUB_CONTEXT"
 
-      - uses: stefanbuck/github-issue-parser@b13189b2d6c488f787245fa74d03f44a7f7643ef
+      - uses: stefanbuck/github-issue-parser@v3
         id: issue-parser
+        with:
+          template-path: .github/ISSUE_TEMPLATE/new-repo.yml
+
+      - name: Set env vars
+        run: | 
+          echo "REPO_NAME=${{ steps.issue-parser.outputs.issueparser_repo_name }}" >> $GITHUB_ENV
+          echo "REPO_DESCRIPTION=${{ steps.issue-parser.outputs.issueparser_repo_description }}" >> $GITHUB_ENV
+          echo "REPO_VISIBILITY=${{ steps.issue-parser.outputs.issueparser_repo_visibility }}" >> $GITHUB_ENV
 
       - name: Post prepare message
         uses: actions/github-script@v6
@@ -33,12 +41,9 @@ jobs:
             commentBody = `👋 Thank you for opening this new repo issue, @${{ github.actor }}.
 
             The following has been parsed from your issue body:
-            - The **repo name** is set to be: **\`${{ steps.issue-parser.outputs.issueparser_repo_name }}\`**
-            - The **repo visibility** is set to be: **\`${{ steps.issue-parser.outputs.issueparser_repo_visibility }}\`**
-            - The **team write permissions** is set to be: **\`${{ steps.issue-parser.outputs.issueparser_team_write_permissions }}\`**
-            - The **team admin permissions** is set to be: **\`${{ steps.issue-parser.outputs.issueparser_team_admin_permissions }}\`**
-            - Enable Issues?: **\`${{ steps.issue-parser.outputs.issueparser_yes_i_want_to_enable_issues }}\`**
-            - Enable Projects?: **\`${{ steps.issue-parser.outputs.issueparser_yes_i_want_to_enable_projects }}\`**
+            - The **repo name** is set to be: **\`${{ env.REPO_NAME }}\`**
+            - The **repo description** is set to be: **\`${{ env.REPO_DESCRIPTION }}\`**
+            - The **repo visibility** is set to be: **\`${{ env.REPO_VISIBILITY }}\`**
 
             ## Create the repo
 
@@ -50,9 +55,9 @@ jobs:
             `
 
             await github.rest.issues.createComment({
-              issue_number: ${{ github.event.issue.number }},
-              owner: '${{ github.REPOSITORY_OWNER }}',
-              repo: '${{ github.event.repository.name }}',
+              owner: context.repo.owner,
+              repo: context.repo.name,
+              issue_number: context.issue.number,
               body: commentBody.replace(/  +/g, '')
             })
             
@@ -64,8 +69,8 @@ jobs:
             let commentBody
             commentBody = `😢 The issue body could not be parsed, @${{ github.actor }}. Please open a new issue using the issue template and ensure your formatting and line spacing remains untouched.`
             await github.rest.issues.createComment({
-              issue_number: ${{ github.event.issue.number }},
-              owner: '${{ github.REPOSITORY_OWNER }}',
-              repo: '${{ github.event.repository.name }}',
+              owner: context.repo.owner,
+              repo: context.repo.name,
+              issue_number: context.issue.number,
               body: commentBody.replace(/  +/g, '')
             })

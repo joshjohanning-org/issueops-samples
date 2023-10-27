@@ -11,74 +11,101 @@ jobs:
       contains(github.event.issue.labels.*.name, 'new-repo'))
 
     steps:
-    - name: Dump GitHub context
-      env:
-        GITHUB_CONTEXT: ${{ toJSON(github) }}
-      run: echo "$GITHUB_CONTEXT"
+      - name: Write GitHub context to log
+        env:
+          GITHUB_CONTEXT: ${{ toJSON(github) }}
+        run: echo "$GITHUB_CONTEXT"
 
-    - uses: stefanbuck/github-issue-parser@v2
-      id: issue-parser
+      - uses: stefanbuck/github-issue-parser@v3
+        id: issue-parser
+        with:
+          template-path: .github/ISSUE_TEMPLATE/new-repo.yml
 
-    - name: create repo
-      env: 
-        GH_TOKEN: ${{secrets.ADMIN_TOKEN}}
-      run: |  
-        echo "repo name = ${{ steps.issue-parser.outputs.issueparser_repo_name }}"
-        echo "repo visibility = ${{ steps.issue-parser.outputs.issueparser_repo_visibility }}"
-        echo "team write permissions = ${{ steps.issue-parser.outputs.issueparser_team_write_permissions }}"
-        echo "team admin permissions = ${{ steps.issue-parser.outputs.issueparser_team_admin_permissions }}"
-        echo "enable issues = ${{ steps.issue-parser.outputs.issueparser_yes_i_want_to_enable_issues }}"
-        echo "enable projects = ${{ steps.issue-parser.outputs.issueparser_yes_i_want_to_enable_projects }}"
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
 
-        gh api \
-          --method POST \
-          -H "Accept: application/vnd.github+json" \
-          /orgs/${{ github.REPOSITORY_OWNER }}/repos \
-          -f name='${{ steps.issue-parser.outputs.issueparser_repo_name }}' \
-          -F visibility=${{ steps.issue-parser.outputs.issueparser_repo_visibility }} \
-          -F has_issues=${{ steps.issue-parser.outputs.issueparser_yes_i_want_to_enable_issues }} \
-          -F has_projects=${{ steps.issue-parser.outputs.issueparser_yes_i_want_to_enable_projects }}
-        
-        echo "adding write team: $team ..."
-        if ! gh api --method PUT /orgs/${{ github.REPOSITORY_OWNER }}/teams/${{ steps.issue-parser.outputs.issueparser_team_write_permissions }}/repos/${{ github.REPOSITORY_OWNER }}/${{ steps.issue-parser.outputs.issueparser_repo_name }} -f permission='push' ; then echo "" && error=1 && echo "::notice::write team ${{ steps.issue-parser.outputs.issueparser_team_write_permissions }} wasn't added to ${{ steps.issue-parser.outputs.issueparser_repo_name }}" ; fi
-        
-        echo "adding admin team: $team ..."
-        if ! gh api --method PUT /orgs/${{ github.REPOSITORY_OWNER }}/teams/${{ steps.issue-parser.outputs.issueparser_team_admin_permissions }}/repos/${{ github.REPOSITORY_OWNER }}/${{ steps.issue-parser.outputs.issueparser_repo_name }} -f permission='admin' ; then echo "" && error=1 && echo "::notice::admin team ${{ steps.issue-parser.outputs.issueparser_team_admin_permissions }} wasn't added to ${{ steps.issue-parser.outputs.issueparser_repo_name }}" ; fi
+      - name: Set env vars
+        run: | 
+          echo "REPO_NAME=${{ steps.issue-parser.outputs.issueparser_repo_name }}" >> $GITHUB_ENV
+          echo "REPO_DESCRIPTION=${{ steps.issue-parser.outputs.issueparser_repo_description }}" >> $GITHUB_ENV
+          echo "REPO_VISIBILITY=${{ steps.issue-parser.outputs.issueparser_repo_visibility }}" >> $GITHUB_ENV
 
-    - name: Add created label
-      if: ${{ success() }}
-      env: 
-        GH_TOKEN: ${{ github.token }}
-      run: gh issue edit ${{ github.event.issue.number }} --add-label created -R ${{ github.repository }}
+      - name: Rename issue
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              title: 'New Repo: ${ process.env.REPO_NAME }'
+            })
 
-    - name: Post successful message
-      uses: actions/github-script@v6
-      if: ${{ success() }}
-      with:
-        script: |
-          let commentBody
-          commentBody = `🚀 New repo created successfully
+      - name: Create repository
+        id: create-repo
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            return await github.rest.repos.createInOrg({
+              org: context.repo.owner,
+              name: process.env.REPO_NAME,
+              description: process.env.REPO_DESCRIPTION,
+              visibility: process.env.REPO_VISIBILITY,
+              auto_init: true,
+              allow_merge_commit: true,
+              allow_rebase_merge: true,
+              allow_squash_merge: true,
+              delete_branch_on_merge: true,
+              allow_update_branch: true,
+            })
 
-          Visit the following link for the repo: [https://github.com/${{ github.repository_owner }}/${{ steps.issue-parser.outputs.issueparser_repo_name }}](https://github.com/${{ github.repository_owner }}/${{ steps.issue-parser.outputs.issueparser_repo_name }})
-          `
+      - name: Add created label
+        if: ${{ success() }}
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })
 
-          await github.rest.issues.createComment({
-            issue_number: ${{ github.event.issue.number }},
-            owner: '${{ github.REPOSITORY_OWNER }}',
-            repo: '${{ github.event.repository.name }}',
-            body: commentBody.replace(/  +/g, '')
-          })
+      - name: Post successful message
+        uses: actions/github-script@v6
+        if: ${{ success() }}
+        with:
+          script: |
+            let commentBody
+            commentBody = `🚀 New repo created successfully
 
-    - name: Post failure message
-      if: ${{ failure() }}
-      uses: actions/github-script@v6
-      with:
-        script: |
-          let commentBody
-          commentBody = `😢 The new repo could not be created. Please review the [action logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
-          await github.rest.issues.createComment({
-            issue_number: ${{ github.event.issue.number }},
-            owner: '${{ github.REPOSITORY_OWNER }}',
-            repo: '${{ github.event.repository.name }}',
-            body: commentBody.replace(/  +/g, '')
-          })
+            Visit the following link for the repo: [https://github.com/${{ github.repository_owner }}/${{ steps.issue-parser.outputs.issueparser_repo_name }}](https://github.com/${{ github.repository_owner }}/${{ steps.issue-parser.outputs.issueparser_repo_name }})
+            `
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })
+
+      - name: Post failure message
+        if: ${{ failure() }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            let commentBody
+            commentBody = `😢 The new repo could not be created. Please review the [action logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })

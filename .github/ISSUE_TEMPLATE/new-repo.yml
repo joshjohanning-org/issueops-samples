@@ -1,18 +1,25 @@
-name: New Repo (YML issue template) (work in progress)
+name: New Repo
 description: Create a new repo with IssueOps
-title: "<enter-repo-name-here>"
+title: "New Repo"
 labels: ["new-repo"]
 body:
-  - type: textarea
+  - type: input
     attributes:
-      label: Repo name
+      label: Repo Name
       description: Enter in the name of the new repository
       placeholder: <enter-repo-name-here>
     validations:
       required: true
+  - type: input
+    attributes:
+      label: Repo Description
+      description: Enter in the description of the new repository
+      placeholder: <enter-repo-description-here>
+    validations:
+      required: true
   - type: dropdown
     attributes:
-      label: Repo visibility
+      label: Repo Visibility
       description: Please select the visibility for the new repository
       options:
         - private
@@ -20,31 +27,24 @@ body:
         - public
     validations:
       required: true
-  - type: textarea
+  - type: checkboxes
     attributes:
-      label: Team Write Permissions
-      description: Enter in the name of the team with write access
-      placeholder: dev-team
-  - type: textarea
-    attributes:
-      label: Team Admin Permissions
-      description: Enter in the name of the team with admin access
-      placeholder: admin-team
+      label: Workflows
+      description: Add in template workflows to the repository?
+      options:
+        - label: "Dependency Review"
+          required: false
+        - label: "CodeQL"
+          required: false
   - type: dropdown
     attributes:
-      label: Enable issues
-      description: Whether to enable issues on the repo or not
+      label: Language
+      description: Please select the language for the new repository (affects what workflows are configured)
       options:
-        - '- [X] Yes, I want to enable Issues'
-        - '- [ ] Yes, I want to enable Issues'
+        - java
+        - c#
+        - javascript
+        - terraform
+        - python
     validations:
-      required: true
-  - type: dropdown
-    attributes:
-      label: Enable projects
-      description: Whether to enable projects on the repo or not
-      options:
-        - ' - [X] Yes, I want to enable Projects'
-        - ' - [ ] Yes, I want to enable Projects'
-    validations:
-      required: true
+      required: false
