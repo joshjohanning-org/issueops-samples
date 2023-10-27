@@ -43,7 +43,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              title: 'New Repo: ${ process.env.REPO_NAME }'
+              title: `New Repo: ${process.env.REPO_NAME}`
             })
 
       - name: Create repository
