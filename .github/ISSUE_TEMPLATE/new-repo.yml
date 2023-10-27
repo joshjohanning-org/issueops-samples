@@ -7,14 +7,14 @@ body:
     attributes:
       label: Repo Name
       description: Enter in the name of the new repository
-      placeholder: <enter-repo-name-here>
+      placeholder: repo-name
     validations:
       required: true
   - type: input
     attributes:
       label: Repo Description
       description: Enter in the description of the new repository
-      placeholder: <enter-repo-description-here>
+      placeholder: repo-description
     validations:
       required: true
   - type: dropdown
@@ -22,8 +22,8 @@ body:
       label: Repo Visibility
       description: Please select the visibility for the new repository
       options:
-        - private
         - internal
+        - private
         - public
     validations:
       required: true
