@@ -47,7 +47,7 @@ jobs:
           script: |
             await github.rest.issues.update({
               owner: context.repo.owner,
-              repo: context.repo.name,
+              repo: context.repo.repo,
               issue_number: context.issue.number,
               title: 'New Repo: ${ process.env.REPO_NAME }'
             })
@@ -75,7 +75,7 @@ jobs:
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
-              repo: context.repo.name,
+              repo: context.repo.repo,
               issue_number: context.issue.number,
               body: commentBody.replace(/  +/g, '')
             })
@@ -89,7 +89,7 @@ jobs:
             commentBody = `😢 The issue body could not be parsed, @${{ github.actor }}. Please open a new issue using the issue template and ensure your formatting and line spacing remains untouched.`
             await github.rest.issues.createComment({
               owner: context.repo.owner,
-              repo: context.repo.name,
+              repo: context.repo.repo,
               issue_number: context.issue.number,
               body: commentBody.replace(/  +/g, '')
             })
