@@ -41,7 +41,7 @@ jobs:
           script: |
             await github.rest.issues.update({
               owner: context.repo.owner,
-              repo: context.repo.repo,
+              repo: context.repo.name,
               issue_number: context.issue.number,
               title: 'New Repo: ${ process.env.REPO_NAME }'
             })
@@ -73,7 +73,7 @@ jobs:
           script: |
             await github.rest.issues.addLabels({
               owner: context.repo.owner,
-              repo: context.repo.repo,
+              repo: context.repo.name,
               issue_number: context.issue.number,
               body: commentBody.replace(/  +/g, '')
             })
@@ -91,7 +91,7 @@ jobs:
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
-              repo: context.repo.repo,
+              repo: context.repo.name,
               issue_number: context.issue.number,
               body: commentBody.replace(/  +/g, '')
             })
@@ -105,7 +105,7 @@ jobs:
             commentBody = `😢 The new repo could not be created. Please review the [action logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
             await github.rest.issues.createComment({
               owner: context.repo.owner,
-              repo: context.repo.repo,
+              repo: context.repo.name,
               issue_number: context.issue.number,
               body: commentBody.replace(/  +/g, '')
             })

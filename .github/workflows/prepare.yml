@@ -47,7 +47,7 @@ jobs:
           script: |
             await github.rest.issues.update({
               owner: context.repo.owner,
-              repo: context.repo.repo,
+              repo: context.repo.name,
               issue_number: context.issue.number,
               title: 'New Repo: ${ process.env.REPO_NAME }'
             })
