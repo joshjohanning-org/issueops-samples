@@ -17,6 +17,7 @@ jobs:
       contains(github.event.issue.labels.*.name, 'new-repo')
 
     steps:
+      - uses: actions/checkout@v4
       - name: Dump GitHub context
         env:
           GITHUB_CONTEXT: ${{ toJSON(github) }}
