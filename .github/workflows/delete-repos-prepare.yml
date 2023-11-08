@@ -1,5 +1,6 @@
 name: delete-repos-prepare
-run-name: 'Delete Repos Prepare: Issue # ${{ github.event.issue.number }} by ${{ github.actor }}'
+
+run-name: 'Delete Repos Prepare: Issue #${{ github.event.issue.number }} by @${{ github.actor }}'
 
 on:
   issues:

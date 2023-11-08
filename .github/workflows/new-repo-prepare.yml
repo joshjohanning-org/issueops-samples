@@ -1,5 +1,7 @@
 name: new-repo-prepare
 
+run-name: 'New Repo: Issue #${{ github.event.issue.number }} by @${{ github.actor }}'
+
 on:
   issues:
     types: [opened]

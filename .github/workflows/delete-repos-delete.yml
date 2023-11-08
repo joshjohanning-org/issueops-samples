@@ -1,5 +1,6 @@
 name: delete-repos-delete
-run-name: 'Delete Repos: Issue # ${{ github.event.issue.number }} by ${{ github.actor }}'
+
+run-name: 'Delete Repos: Issue #${{ github.event.issue.number }} by @${{ github.actor }}'
 
 on:
   issue_comment:

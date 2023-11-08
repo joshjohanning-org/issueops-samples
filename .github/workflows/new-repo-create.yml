@@ -1,5 +1,7 @@
 name: new-repo-create
 
+run-name: 'New Repo: Issue #${{ github.event.issue.number }} by @${{ github.actor }}'
+
 on:
   issue_comment:
     types: [created]
