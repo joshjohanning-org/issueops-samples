@@ -106,7 +106,7 @@ jobs:
         with:
           script: |
             let commentBody
-            commentBody = `😢 The repo(s) could not be deleted. Has the action been approved with a \`/approve\` comment? Please review the [action logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
+            commentBody = `😢 The repo(s) could not be deleted. Please review the [action logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
