@@ -91,7 +91,7 @@ jobs:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
             let commentBody
-            commentBody = `🚮 Repo(s) deleted successfully
+            commentBody = `🚮 Repo(s) deleted successfully.
 
             Review the [action logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.
             `

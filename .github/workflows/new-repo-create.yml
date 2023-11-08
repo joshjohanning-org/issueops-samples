@@ -91,7 +91,7 @@ jobs:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
             let commentBody
-            commentBody = `🚀 New repo created successfully
+            commentBody = `🚀 New repo created successfully.
 
             Visit the following link for the repo: [https://github.com/${{ github.repository_owner }}/${{ steps.issue-parser.outputs.issueparser_repo_name }}](https://github.com/${{ github.repository_owner }}/${{ steps.issue-parser.outputs.issueparser_repo_name }})
             `
