@@ -47,6 +47,7 @@ jobs:
 
       - name: ApproveOps
         uses: joshjohanning/approveops@v2
+        id: check-approval
         with:
           token: ${{ steps.app-token.outputs.token }}
           approve-command: /approve
@@ -100,7 +101,7 @@ jobs:
             })
 
       - name: Post failure message
-        if: ${{ failure() }}
+        if: ${{ failure() && steps.check-approval.outputs.approved == 'true' }}
         uses: actions/github-script@v6
         with:
           script: |
