@@ -1,6 +1,9 @@
 const core = require("@actions/core")
 const { Octokit } = require("octokit");
-const fetch = require('node-fetch');
+
+let fetch;
+import('node-fetch').then(nodeFetch => {
+  fetch = nodeFetch;
 
 const gh = new Octokit({
   auth: process.env.APP_TOKEN,
