@@ -70,7 +70,7 @@ jobs:
               allow_update_branch: true,
             })
 
-      - name: Add created label
+      - name: Add created label and close issue
         if: ${{ success() }}
         uses: actions/github-script@v6
         with:
@@ -80,7 +80,8 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              labels: ["created"]
+              labels: ["created"],
+              state: "closed"
             })
 
       - name: Post successful message

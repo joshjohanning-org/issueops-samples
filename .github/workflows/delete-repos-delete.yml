@@ -70,7 +70,7 @@ jobs:
           APP_TOKEN: ${{ steps.app-token.outputs.token }}
           REPOSITORIES: ${{ steps.issue-parser.outputs.issueparser_repositories }}
 
-      - name: Add deleted label
+      - name: Add deleted label and close issue
         if: ${{ success() }}
         uses: actions/github-script@v6
         with:
@@ -80,7 +80,8 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              labels: ["deleted"]
+              labels: ["deleted"],
+              state: "closed"
             })
 
       - name: Post successful message
