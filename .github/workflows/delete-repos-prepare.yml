@@ -68,6 +68,14 @@ jobs:
             ${process.env.REPOSITORIES}
             \`\`\`
 
+            ## Approval
+
+            Someone from the proper team has to run the following command in order to proceed
+
+            \`\`\`
+            /approve
+            \`\`\`
+
             ## Delete the repo(s)
 
             Add the following comment to this issue in order to create the repo:

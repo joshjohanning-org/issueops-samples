@@ -45,6 +45,15 @@ jobs:
               title: `Delete Repo(s): ${{ github.actor }} (${process.env.REPOSITORIES.trim().split('\n').length})`
             })
 
+      - name: ApproveOps
+        uses: joshjohanning/approveops@v2
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          approve-command: /approve
+          team-name: approver-team
+          fail-if-approval-not-found: true
+          post-successful-approval-comment: false
+
       - name: npm install
         run: npm i octokit @actions/core
 
@@ -96,7 +105,7 @@ jobs:
         with:
           script: |
             let commentBody
-            commentBody = `😢 The new repo(s) could not be deleted. Please review the [action logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
+            commentBody = `😢 The repo(s) could not be deleted. Has the action been approved with a `/approve` comment? Please review the [action logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
