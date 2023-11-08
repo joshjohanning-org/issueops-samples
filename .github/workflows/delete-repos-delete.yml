@@ -5,7 +5,7 @@ on:
     types: [created]
 
 jobs:
-  new-repo-delete:
+  delete-repos-delete:
     runs-on: ubuntu-latest
     if: github.event_name == 'issue_comment' &&
       (startsWith(github.event.comment.body, '/delete-repos') &&
