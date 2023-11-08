@@ -51,7 +51,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              title: `Delete Repo(s): ${{ github.actor }} (${process.env.REPOSITORIES.trim().split('\n').length})`
+              title: `Delete Repo(s): ${{ github.actor }} (Count: ${process.env.REPOSITORIES.trim().split('\n').length})`
             })
 
       - name: Post prepare message
@@ -72,7 +72,7 @@ jobs:
 
             ## Approval
 
-            Someone from the proper team has to run the following command in order to proceed
+            Someone from the @${process.env.GITHUB_REPOSITORY_OWNER}/approver-team team has to run the following command in order to proceed with the deletion: 
 
             \`\`\`
             /approve

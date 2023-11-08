@@ -44,7 +44,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              title: `Delete Repo(s): ${{ github.actor }} (${process.env.REPOSITORIES.trim().split('\n').length})`
+              title: `Delete Repo(s): ${{ github.actor }} (Count: ${process.env.REPOSITORIES.trim().split('\n').length})`
             })
 
       - name: ApproveOps
