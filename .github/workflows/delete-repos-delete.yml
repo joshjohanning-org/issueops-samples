@@ -40,11 +40,12 @@ jobs:
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
+            let repositories = process.env.REPOSITORIES.trim().split('\n');
             await github.rest.issues.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              title: `Delete Repo(s): ${{ github.actor }} (Count: ${process.env.REPOSITORIES.trim().split('\n').length})`
+              title: `Delete Repo(s): ${{ github.actor }} (${repositories.[0].trim()} (Count: ${repositories.length})`
             })
 
       - name: ApproveOps
