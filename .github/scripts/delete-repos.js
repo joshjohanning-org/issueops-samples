@@ -12,10 +12,10 @@ module.exports = async ({ repositories }) => {
     .filter((s) => s.length > 0);
 
   for (const repo of repos) {
-    core.info(`Target repo name: ${process.env.TARGET_ORG}/${repo}`);
+    core.info(`Target repo name: ${process.env.GITHUB_REPOSITORY_OWNER}/${repo}`);
 
     await gh.rest.repos.delete({
-      owner: process.env.TARGET_ORG, 
+      owner: process.env.GITHUB_REPOSITORY_OWNER, 
       repo: repo, 
     });
   }
