@@ -1,10 +1,11 @@
-name: Create repository with IssueOps
+name: new-repo-create
+
 on:
   issue_comment:
     types: [created]
 
 jobs:
-  Create-Repo:
+  new-repo-create:
     runs-on: ubuntu-latest
     if: github.event_name == 'issue_comment' &&
       (startsWith(github.event.comment.body, '/create-repo') &&
@@ -35,6 +36,7 @@ jobs:
           echo "REPO_DESCRIPTION=${{ steps.issue-parser.outputs.issueparser_repo_description }}" >> $GITHUB_ENV
           echo "REPO_VISIBILITY=${{ steps.issue-parser.outputs.issueparser_repo_visibility }}" >> $GITHUB_ENV
 
+      # doing this again in case someone else renamed the issue
       - name: Rename issue
         uses: actions/github-script@v6
         with:

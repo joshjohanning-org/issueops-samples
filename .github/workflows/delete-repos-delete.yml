@@ -1,0 +1,105 @@
+name: delete-repos-delete
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  new-repo-delete:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issue_comment' &&
+      (startsWith(github.event.comment.body, '/delete-repos') &&
+      contains(github.event.issue.labels.*.name, 'delete-repos'))
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write GitHub context to log
+        env:
+          GITHUB_CONTEXT: ${{ toJSON(github) }}
+        run: echo "$GITHUB_CONTEXT"
+
+      - uses: stefanbuck/github-issue-parser@v3
+        id: issue-parser
+        with:
+          template-path: .github/ISSUE_TEMPLATE/delete-repos.yml
+
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      # doing this again in case someone else renamed the issue
+      - name: Rename issue
+        uses: actions/github-script@v6
+        env:
+          REPOSITORIES: ${{ steps.issue-parser.outputs.issueparser_repositories }}
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              title: `Delete Repo(s): ${{ github.actor }} (${process.env.REPOSITORIES.trim().split('\n').length})`
+            })
+
+      - name: npm install
+        run: npm i octokit @actions/core
+
+      - name: Delete Repos
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const repositories = process.env.REPOSITORIES;
+            await require('./.github/scripts/delete-repos.js') ({repositories});
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPOSITORIES: ${{ steps.issue-parser.outputs.issueparser_repositories }}
+
+      - name: Add deleted label
+        if: ${{ success() }}
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ["deleted"]
+            })
+
+      - name: Post successful message
+        uses: actions/github-script@v6
+        if: ${{ success() }}
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            let commentBody
+            commentBody = `🚮 Repo(s) deleted successfully
+
+            Review the [action logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.
+            `
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })
+
+      - name: Post failure message
+        if: ${{ failure() }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            let commentBody
+            commentBody = `😢 The new repo(s) could not be deleted. Please review the [action logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })

@@ -1,14 +1,11 @@
-# Parses migration issue and creates a comment with next step
-#
-
-name: Prepare
+name: new-repo-prepare
 
 on:
   issues:
     types: [opened]
 
 jobs:
-  prepare:
+  new-repo-prepare:
     name: Prepare Migration
     runs-on: ubuntu-latest
 
@@ -18,7 +15,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Dump GitHub context
+      - name: Write GitHub context to log
         env:
           GITHUB_CONTEXT: ${{ toJSON(github) }}
         run: echo "$GITHUB_CONTEXT"

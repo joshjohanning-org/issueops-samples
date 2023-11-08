@@ -1,0 +1,99 @@
+name: delete-repos-prepare
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  delete-repos-prepare:
+    name: Prepare Migration
+    runs-on: ubuntu-latest
+
+    if: github.event_name == 'issues' &&
+      (github.event.action == 'opened') &&
+      contains(github.event.issue.labels.*.name, 'delete-repos')
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write GitHub context to log
+        env:
+          GITHUB_CONTEXT: ${{ toJSON(github) }}
+        run: echo "$GITHUB_CONTEXT"
+
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - uses: stefanbuck/github-issue-parser@v3
+        id: issue-parser
+        with:
+          template-path: .github/ISSUE_TEMPLATE/delete-repos.yml
+
+      - name: Set env vars
+        run: | 
+          echo "REPO_NAME=${{ steps.issue-parser.outputs.issueparser_repo_name }}" >> $GITHUB_ENV
+          echo "REPO_DESCRIPTION=${{ steps.issue-parser.outputs.issueparser_repo_description }}" >> $GITHUB_ENV
+          echo "REPO_VISIBILITY=${{ steps.issue-parser.outputs.issueparser_repo_visibility }}" >> $GITHUB_ENV
+
+      - name: Rename issue
+        uses: actions/github-script@v6
+        env:
+          REPOSITORIES: ${{ steps.issue-parser.outputs.issueparser_repositories }}
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              title: `Delete Repo(s): ${{ github.actor }} (${process.env.REPOSITORIES.trim().split('\n').length})`
+            })
+
+      - name: Post prepare message
+        uses: actions/github-script@v6
+        env:
+          REPOSITORIES: ${{ steps.issue-parser.outputs.issueparser_repositories }}
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            let commentBody
+            commentBody = `👋 Thank you for opening this issue to delete repo(s), @${{ github.actor }}.
+
+            The following **${process.env.REPOSITORIES.trim().split('\n').length} repositories** have been parsed from your issue body:
+          
+            \`\`\`
+            ${process.env.REPOSITORIES}
+            \`\`\`
+
+            ## Delete the repo(s)
+
+            Add the following comment to this issue in order to create the repo:
+          
+            \`\`\`
+            /delete-repos
+            \`\`\`
+            `
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })
+            
+      - name: Post failure message
+        if: ${{ failure() }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            let commentBody
+            commentBody = `😢 The issue body could not be parsed, @${{ github.actor }}. Please open a new issue using the issue template and ensure your formatting and line spacing remains untouched.`
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })

@@ -1,0 +1,15 @@
+name: Delete Repo(s)
+description: Delete repo(s) with IssueOps
+title: "Delete Repo"
+labels: ["delete-repos"]
+body:
+  - type: textarea
+    id: repositories
+    attributes:
+      label: Repo Name(s)
+      description: Enter in the name(s) of the repo(s) to delete
+      placeholder: |
+        repo-to-delete-1
+        repo-to-delete-2
+    validations:
+      required: true
