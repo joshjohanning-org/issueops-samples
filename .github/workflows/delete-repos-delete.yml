@@ -56,7 +56,7 @@ jobs:
           post-successful-approval-comment: false
 
       - name: npm install
-        run: npm i octokit @actions/core
+        run: npm i octokit @actions/core node-fetch
 
       - name: Delete Repos
         uses: actions/github-script@v6

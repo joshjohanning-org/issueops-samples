@@ -1,8 +1,12 @@
 const core = require("@actions/core")
 const { Octokit } = require("octokit");
+const fetch = require('node-fetch');
 
 const gh = new Octokit({
   auth: process.env.APP_TOKEN,
+  request: {
+    fetch: fetch,
+  },
 });
 
 module.exports = async ({ repositories }) => {
