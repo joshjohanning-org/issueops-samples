@@ -72,7 +72,7 @@ jobs:
 
             ## Approval
 
-            Someone from the @${process.env.GITHUB_REPOSITORY_OWNER}/approver-team team has to run the following command in order to proceed with the deletion: 
+            Someone from the @${process.env.GITHUB_REPOSITORY_OWNER}/approver-team team has to run the following command in order to proceed: 
 
             \`\`\`
             /approve
