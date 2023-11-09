@@ -59,7 +59,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              title: `Delete Repo(s): ${{ github.actor }} (${repositories[0].trim()}) (Count: ${repositories.length})`
+              title: `Delete Repo(s): ${{ github.actor }} (${issueTitleRepo}) (Count: ${repositories.length})`
             })
 
       - name: Post prepare message
