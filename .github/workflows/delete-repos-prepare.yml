@@ -48,6 +48,13 @@ jobs:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
             let repositories = process.env.REPOSITORIES.trim().split('\n');
+            let issueTitleRepo
+            if (repositories.length > 1) {
+              issueTitleRepo = `${repositories[0].trim()}...`;
+            } else {
+              issueTitleRepo = repositories[0].trim();
+            }
+
             await github.rest.issues.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
