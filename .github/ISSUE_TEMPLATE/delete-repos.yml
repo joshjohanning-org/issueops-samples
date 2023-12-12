@@ -1,4 +1,4 @@
-name: Delete Repo(s)
+name: 🗑️ Delete Repo(s)
 description: Delete repo(s) with IssueOps
 title: "Delete Repo"
 labels: ["delete-repos"]

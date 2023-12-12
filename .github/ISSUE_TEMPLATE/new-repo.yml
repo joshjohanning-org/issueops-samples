@@ -1,4 +1,4 @@
-name: New Repo
+name: 🆕 New Repo
 description: Create a new repo with IssueOps
 title: "New Repo"
 labels: ["new-repo"]
@@ -30,7 +30,7 @@ body:
   - type: checkboxes
     attributes:
       label: Workflows
-      description: Add in template workflows to the repository?
+      description: Add in template workflows to the repository? (concept, not implemented)
       options:
         - label: "Dependency Review"
           required: false
@@ -39,7 +39,7 @@ body:
   - type: dropdown
     attributes:
       label: Language
-      description: Please select the language for the new repository (affects what workflows are configured)
+      description: Please select the language for the new repository (affects what workflows are configured) (concept, not implemented)
       options:
         - java
         - c#
