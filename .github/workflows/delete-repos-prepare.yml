@@ -78,7 +78,7 @@ jobs:
             ${process.env.REPOSITORIES}
             \`\`\`
 
-            ## Approval
+            ## 1. Approval
 
             Someone from the @${process.env.GITHUB_REPOSITORY_OWNER}/approver-team team has to run the following command in order to proceed: 
 
@@ -86,9 +86,9 @@ jobs:
             /approve
             \`\`\`
 
-            ## Delete the repo(s)
+            ## 2. Delete the repo(s)
 
-            Add the following comment to this issue in order to create the repo:
+            Add the following comment to this issue in order to delete the repo(s):
           
             \`\`\`
             /delete-repos
