@@ -10,10 +10,12 @@ jobs:
   new-repo-prepare:
     name: Prepare Migration
     runs-on: ubuntu-latest
-
     if: github.event_name == 'issues' &&
       (github.event.action == 'opened') &&
       contains(github.event.issue.labels.*.name, 'new-repo')
+    permissions:
+      contents: read
+      issues: write
 
     steps:
       - uses: actions/checkout@v4

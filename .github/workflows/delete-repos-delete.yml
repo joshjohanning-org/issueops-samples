@@ -12,6 +12,9 @@ jobs:
     if: github.event_name == 'issue_comment' &&
       (startsWith(github.event.comment.body, '/delete-repos') &&
       contains(github.event.issue.labels.*.name, 'delete-repos'))
+    permissions:
+      contents: read
+      issues: write
 
     steps:
       - uses: actions/checkout@v4
