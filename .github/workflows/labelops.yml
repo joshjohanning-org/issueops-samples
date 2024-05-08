@@ -1,6 +1,6 @@
 name: labelops-deploy
 
-run-name: 'New Repo: Issue #${{ github.event.pull_request.number }} by @${{ github.actor }}'
+run-name: 'Deploy to Dev: PR #${{ github.event.pull_request.number }} by @${{ github.actor }}'
 
 on:
   pull_request:
