@@ -19,6 +19,9 @@ jobs:
       - uses: actions/checkout@v4
       - run: echo "yay!"
       - name: remove PR label
-        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label 'deploy-dev'
+        run: |
+          # using gh pr edit to avoid potential projects error https://github.com/cli/cli/issues/6274
+          # gh pr edit ${{ github.event.pull_request.number }} --remove-label 'deploy-dev'
+          gh api -X DELETE /repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/deploy-dev
         env:
           GH_TOKEN: ${{ github.token }}
