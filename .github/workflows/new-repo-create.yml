@@ -73,6 +73,25 @@ jobs:
               allow_update_branch: true,
             })
 
+      # adding a commit in the newly created repo
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          repository: ${{ github.owner}}/${{ env.REPO_NAME }}
+          path: ${{ env.REPO_NAME }}
+      - name: push to git repo
+        run: |
+          cd ${{ env.REPO_NAME }}
+          git config --global user.name 'josh-issueops-bot[bot]'
+          git config --global user.email '149130343+josh-issueops-bot[bot]@users.noreply.github.com'
+          # Get the current date
+          current_date=$(date)
+          # Append the current date to the README.md file
+          echo -e "\n## Created date: $current_date" >> README.md
+          git add .
+          git commit -m "ci: updating readme"
+          git push
+
       - name: Add created label and close issue
         if: ${{ success() }}
         uses: actions/github-script@v6
