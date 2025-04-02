@@ -2,7 +2,10 @@
 
 ## Solutions
 
-- New Repo IssueOps
+- 🆕 New Repo (IssueOps)
+- 🪓 Delete Repo (IssueOps)
+- 🏷️ Labelops
+- ✨ [Reusable Worfklow repo onboarder](https://github.com/joshjohanning-org/reusable-workflow-issueops-onboarder) (IssueOps) (separate repository)
 
 ## General Features
 
