@@ -31,16 +31,21 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
-      - uses: stefanbuck/github-issue-parser@v3
-        id: issue-parser
+      - name: Parse Issue
+        id: parser
+        uses: issue-ops/parser@v4
         with:
-          template-path: .github/ISSUE_TEMPLATE/create-repo.yml
+          body: ${{ github.event.issue.body }}
+
+      - name: Output Issue JSON
+        id: output-issue
+        run: echo "${{ steps.parser.outputs.json }}"
 
       - name: Set env vars
-        run: | 
-          echo "REPO_NAME=${{ steps.issue-parser.outputs.issueparser_repo_name }}" >> $GITHUB_ENV
-          echo "REPO_DESCRIPTION=${{ steps.issue-parser.outputs.issueparser_repo_description }}" >> $GITHUB_ENV
-          echo "REPO_VISIBILITY=${{ steps.issue-parser.outputs.issueparser_repo_visibility }}" >> $GITHUB_ENV
+        run: |
+          echo "REPO_NAME=${{ fromJson(steps.parser.outputs.json).repo_name }}" >> $GITHUB_ENV
+          echo "REPO_DESCRIPTION=${{ fromJson(steps.parser.outputs.json).repo_description }}" >> $GITHUB_ENV
+          echo "REPO_VISIBILITY=${{ fromJson(steps.parser.outputs.json).repo_visibility }}" >> $GITHUB_ENV
 
       - name: Rename issue
         uses: actions/github-script@v7
