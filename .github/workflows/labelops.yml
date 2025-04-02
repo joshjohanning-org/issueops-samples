@@ -20,7 +20,7 @@ jobs:
       - run: echo "yay!"
       - name: remove PR label
         run: |
-          # using gh pr edit to avoid potential projects error https://github.com/cli/cli/issues/6274
+          # using gh pr edit to avoid potential projects error ${{ github.SERVER_URL }}/cli/cli/issues/6274
           # gh pr edit ${{ github.event.pull_request.number }} --remove-label 'deploy-dev'
           gh api -X DELETE /repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/deploy-dev
         env:

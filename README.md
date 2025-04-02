@@ -5,7 +5,7 @@
 - 🆕 Create Repo (IssueOps)
 - 🪓 Delete Repo (IssueOps)
 - 🏷️ Labelops
-- ✨ [Reusable Worfklow repo onboarder](https://github.com/joshjohanning-org/reusable-workflow-issueops-onboarder) (IssueOps) (separate repository)
+- ✨ [Reusable Worfklow repo onboarder](${{ github.SERVER_URL }}/joshjohanning-org/reusable-workflow-issueops-onboarder) (IssueOps) (separate repository)
 
 ## General Features
 
@@ -37,7 +37,7 @@ gh label create deleted -R joshjohanning-org/issueops-samples
 
 ## Example Issue
 
-This contains the request and processing messages: https://github.com/joshjohanning-org/issueops-samples/issues/35
+This contains the request and processing messages: ${{ github.SERVER_URL }}/joshjohanning-org/issueops-samples/issues/35
 
 ## Notes
 

@@ -115,7 +115,7 @@ jobs:
             let commentBody
             commentBody = `🚀 Successfully created the new repository: ${{ github.repository_owner}}/${{ env.REPO_NAME }}.
 
-            Visit the following link for the repo: [https://github.com/${{ github.repository_owner }}/${{ env.REPO_NAME }}](https://github.com/${{ github.repository_owner }}/${{ env.REPO_NAME }})
+            Visit the following link for the repo: [${{ github.SERVER_URL }}/${{ github.repository_owner }}/${{ env.REPO_NAME }}](${{ github.SERVER_URL }}/${{ github.repository_owner }}/${{ env.REPO_NAME }})
             `
 
             await github.rest.issues.createComment({
@@ -131,7 +131,7 @@ jobs:
         with:
           script: |
             let commentBody
-            commentBody = `😢 The new repository could not be created. Please review the [action logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
+            commentBody = `😢 The new repository could not be created. Please review the [action logs](${{ github.SERVER_URL }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
