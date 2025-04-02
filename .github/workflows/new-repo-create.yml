@@ -41,8 +41,11 @@ jobs:
         run: echo "${{ steps.parser.outputs.json }}"
 
       - name: Set env vars
-        run: | 
-          echo "REPO_NAME=${{ fromJson(steps.parser.outputs.json).repo_name }}" >> $GITHUB_ENV
+        run: |
+          # Convert the repo name to a slug (lowercase, replace spaces with dashes, remove special chars)
+          REPO_NAME=$(echo "${{ fromJson(steps.parser.outputs.json).repo_name }}" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g')
+          # set values to env vars to prevent potential script injection
+          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
           echo "REPO_DESCRIPTION=${{ fromJson(steps.parser.outputs.json).repo_description }}" >> $GITHUB_ENV
           echo "REPO_VISIBILITY=${{ fromJson(steps.parser.outputs.json).repo_visibility }}" >> $GITHUB_ENV
 
