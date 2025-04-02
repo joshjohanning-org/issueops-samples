@@ -1,17 +1,17 @@
-name: new-repo-create
+name: create-repo-run
 
-run-name: 'New Repo: Issue #${{ github.event.issue.number }} by @${{ github.actor }}'
+run-name: 'Create Repo: Issue #${{ github.event.issue.number }} by @${{ github.actor }}'
 
 on:
   issue_comment:
     types: [created]
 
 jobs:
-  new-repo-create:
+  create-repo-run:
     runs-on: ubuntu-latest
     if: github.event_name == 'issue_comment' &&
       (startsWith(github.event.comment.body, '/create-repo') &&
-      contains(github.event.issue.labels.*.name, 'new-repo'))
+      contains(github.event.issue.labels.*.name, 'create-repo'))
     permissions:
       contents: read
       issues: write
@@ -26,7 +26,7 @@ jobs:
       - uses: stefanbuck/github-issue-parser@v3
         id: issue-parser
         with:
-          template-path: .github/ISSUE_TEMPLATE/new-repo.yml
+          template-path: .github/ISSUE_TEMPLATE/create-repo.yml
 
       - uses: actions/create-github-app-token@v1
         id: app-token
@@ -51,7 +51,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              title: `New Repo: ${process.env.REPO_NAME}`
+              title: `Create Repo: ${process.env.REPO_NAME}`
             })
 
       - name: Create repository
@@ -102,7 +102,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              labels: ["created", "new-repo"],
+              labels: ["created", "create-repo"],
               state: "closed"
             })
 
@@ -113,9 +113,9 @@ jobs:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
             let commentBody
-            commentBody = `🚀 New repo created successfully.
+            commentBody = `🚀 Successfully created the new repository: ${{ github.repository_owner}}/${{ env.REPO_NAME }}.
 
-            Visit the following link for the repo: [https://github.com/${{ github.repository_owner }}/${{ steps.issue-parser.outputs.issueparser_repo_name }}](https://github.com/${{ github.repository_owner }}/${{ steps.issue-parser.outputs.issueparser_repo_name }})
+            Visit the following link for the repo: [https://github.com/${{ github.repository_owner }}/${{ env.REPO_NAME }}](https://github.com/${{ github.repository_owner }}/${{ env.REPO_NAME }})
             `
 
             await github.rest.issues.createComment({
@@ -131,7 +131,7 @@ jobs:
         with:
           script: |
             let commentBody
-            commentBody = `😢 The new repo could not be created. Please review the [action logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
+            commentBody = `😢 The new repository could not be created. Please review the [action logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,

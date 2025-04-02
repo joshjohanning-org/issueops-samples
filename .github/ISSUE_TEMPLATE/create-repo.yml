@@ -1,7 +1,7 @@
-name: 🆕 New Repo
+name: 🆕 Create Repo
 description: Create a new repo with IssueOps
-title: "New Repo"
-labels: ["new-repo"]
+title: "Create Repo"
+labels: ["create-repo"]
 body:
   - type: input
     attributes:

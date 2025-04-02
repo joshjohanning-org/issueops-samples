@@ -1,4 +1,4 @@
-name: delete-repos-delete
+name: delete-repos-run
 
 run-name: 'Delete Repos: Issue #${{ github.event.issue.number }} by @${{ github.actor }}'
 
@@ -7,7 +7,7 @@ on:
     types: [created]
 
 jobs:
-  delete-repos-delete:
+  delete-repos-run:
     runs-on: ubuntu-latest
     if: github.event_name == 'issue_comment' &&
       (startsWith(github.event.comment.body, '/delete-repos') &&

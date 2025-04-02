@@ -1,18 +1,18 @@
-name: new-repo-prepare
+name: create-repo-prepare
 
-run-name: 'New Repo: Issue #${{ github.event.issue.number }} by @${{ github.actor }}'
+run-name: 'Create Repo: Issue #${{ github.event.issue.number }} by @${{ github.actor }}'
 
 on:
   issues:
     types: [opened]
 
 jobs:
-  new-repo-prepare:
+  create-repo-prepare:
     name: Prepare Migration
     runs-on: ubuntu-latest
     if: github.event_name == 'issues' &&
       (github.event.action == 'opened') &&
-      contains(github.event.issue.labels.*.name, 'new-repo')
+      contains(github.event.issue.labels.*.name, 'create-repo')
     permissions:
       contents: read
       issues: write
@@ -34,7 +34,7 @@ jobs:
       - uses: stefanbuck/github-issue-parser@v3
         id: issue-parser
         with:
-          template-path: .github/ISSUE_TEMPLATE/new-repo.yml
+          template-path: .github/ISSUE_TEMPLATE/create-repo.yml
 
       - name: Set env vars
         run: | 
@@ -51,7 +51,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              title: `New Repo: ${process.env.REPO_NAME}`
+              title: `Create Repo: ${process.env.REPO_NAME}`
             })
 
       - name: Post prepare message
@@ -60,7 +60,7 @@ jobs:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
             let commentBody
-            commentBody = `👋 Thank you for opening this new repo issue, @${{ github.actor }}.
+            commentBody = `👋 Thank you for opening this issue to create a new repository, @${{ github.actor }}.
 
             The following has been parsed from your issue body:
             - The **repo name** is set to be: **\`${{ env.REPO_NAME }}\`**

@@ -8,7 +8,7 @@ on:
       - labeled
 
 jobs:
-  new-repo-create:
+  labelops-deploy:
     runs-on: ubuntu-latest
     if: contains(github.event.pull_request.labels.*.name, 'deploy-dev')
     permissions:
