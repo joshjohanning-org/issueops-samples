@@ -5,7 +5,7 @@
 - 🆕 Create Repo (IssueOps)
 - 🪓 Delete Repo (IssueOps)
 - 🏷️ Labelops
-- ✨ [Reusable Worfklow repo onboarder](${{ github.SERVER_URL }}/joshjohanning-org/reusable-workflow-issueops-onboarder) (IssueOps) (separate repository)
+- ✨ [Reusable Worfklow repo onboarder](https://github.com/joshjohanning-org/reusable-workflow-issueops-onboarder) (IssueOps) (separate repository)
 
 ## General Features
 
@@ -18,27 +18,42 @@
 
 ## Setup
 
-### Creds
+### Credentials
 
-1. Create a repo secret titled `ADMIN_TOKEN` with the value of a GitHub PAT (or modify the workflow code with the title of the secret with the GitHub PAT)
-1. [Create a label](https://docs.github.com/en/issues/using-labels-and-milestones-to-track-work/managing-labels#creating-a-label) titled `create-repo` AND `created`
+- The solution uses a [GitHub App for authentication](https://josh-ops.com/posts/github-apps/)
+  - Actions secrets/variables:
+    - Secret: `PRIVATE_KEY`
+    - Variable: `APP_ID`
+  - Permissions required:
+    - Repository:
+      - `administration`: read/write (for creating/deleting repos)
+      - `contents`: read/write (for pushing code to the new repo)
+      - `issues`: read/write (for updating/closing issues)
+      - `workflows`: read/write (for pushing workflow files)
+    - Organization:
+      - none
 
 ### Labels
 
 Create the appropriate labels
 
 ```bash
-gh label create create-repo -R joshjohanning-org/issueops-samples
-gh label create created -R joshjohanning-org/issueops-samples
+gh label create create-repo
+gh label create created
 
-gh label create delete-repos -R joshjohanning-org/issueops-samples
-gh label create deleted -R joshjohanning-org/issueops-samples
+gh label create delete-repos
+gh label create deleted
 ```
+
+> [!TIP]
+> If your terminal isn't running under the cloned repository, you can pass in the `--repo` flag to the `gh` command. For example:
+> `gh label create create-repo --repo joshjohanning-org/issueops-samples`
 
 ## Example Issue
 
-This contains the request and processing messages: ${{ github.SERVER_URL }}/joshjohanning-org/issueops-samples/issues/35
+- Create repo [example](https://github.com/joshjohanning-org/issueops-samples/issues/35)
+- Delete repo(s) [example](https://github.com/joshjohanning-org/issueops-samples/issues/57)
 
 ## Notes
 
-This often assumes the org that the IssueOps repo is hosted in is the org you are using for API calls (ie: to create/delete repos). Update the owner as appropriate or modify the issue template to allow that as an input.
+- This often assumes the org that the IssueOps repo is hosted in is the org you are using for API calls (ie: to create/delete repos). Update the owner as appropriate or modify the issue template to allow that as an input.
