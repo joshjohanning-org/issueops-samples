@@ -10,10 +10,12 @@ jobs:
   delete-repos-prepare:
     name: Prepare Migration
     runs-on: ubuntu-latest
-
     if: github.event_name == 'issues' &&
       (github.event.action == 'opened') &&
       contains(github.event.issue.labels.*.name, 'delete-repos')
+    permissions:
+      contents: read
+      issues: write
 
     steps:
       - uses: actions/checkout@v4
@@ -26,10 +28,10 @@ jobs:
         id: app-token
         with:
           app-id: ${{ vars.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
-      - uses: stefanbuck/github-issue-parser@v3
+      - uses: stefanbuck/github-issue-parser@2ea9b35a8c584529ed00891a8f7e41dc46d0441e # v3.2.1
         id: issue-parser
         with:
           template-path: .github/ISSUE_TEMPLATE/delete-repos.yml
@@ -41,7 +43,7 @@ jobs:
           echo "REPO_VISIBILITY=${{ steps.issue-parser.outputs.issueparser_repo_visibility }}" >> $GITHUB_ENV
 
       - name: Rename issue
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         env:
           REPOSITORIES: ${{ steps.issue-parser.outputs.issueparser_repositories }}
         with:
@@ -63,7 +65,7 @@ jobs:
             })
 
       - name: Post prepare message
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         env:
           REPOSITORIES: ${{ steps.issue-parser.outputs.issueparser_repositories }}
         with:
@@ -104,11 +106,11 @@ jobs:
             
       - name: Post failure message
         if: ${{ failure() }}
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             let commentBody
-            commentBody = `😢 The issue body could not be parsed, @${{ github.actor }}. Please open a new issue using the issue template and ensure your formatting and line spacing remains untouched.`
+            commentBody = `😢 The issue body could not be parsed, @${{ github.actor }}. Please open a new issue using the issue template and ensure your formatting and line spacing remains untouched.\n\nReview the [action logs](${{ github.SERVER_URL }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,

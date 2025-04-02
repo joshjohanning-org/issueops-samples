@@ -1,19 +1,21 @@
-name: new-repo-prepare
+name: create-repo-prepare
 
-run-name: 'New Repo: Issue #${{ github.event.issue.number }} by @${{ github.actor }}'
+run-name: 'Create Repo: Issue #${{ github.event.issue.number }} by @${{ github.actor }}'
 
 on:
   issues:
     types: [opened]
 
 jobs:
-  new-repo-prepare:
+  create-repo-prepare:
     name: Prepare Migration
     runs-on: ubuntu-latest
-
     if: github.event_name == 'issues' &&
       (github.event.action == 'opened') &&
-      contains(github.event.issue.labels.*.name, 'new-repo')
+      contains(github.event.issue.labels.*.name, 'create-repo')
+    permissions:
+      contents: read
+      issues: write
 
     steps:
       - uses: actions/checkout@v4
@@ -26,22 +28,30 @@ jobs:
         id: app-token
         with:
           app-id: ${{ vars.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
-      - uses: stefanbuck/github-issue-parser@v3
-        id: issue-parser
+      - name: Parse Issue
+        id: parser
+        uses: issue-ops/parser@17134bd7d0633c8267868e79fca7023745aee2f9 # v4.1.0
         with:
-          template-path: .github/ISSUE_TEMPLATE/new-repo.yml
+          body: ${{ github.event.issue.body }}
+
+      - name: Output Issue JSON
+        id: output-issue
+        run: echo "${{ steps.parser.outputs.json }}"
 
       - name: Set env vars
-        run: | 
-          echo "REPO_NAME=${{ steps.issue-parser.outputs.issueparser_repo_name }}" >> $GITHUB_ENV
-          echo "REPO_DESCRIPTION=${{ steps.issue-parser.outputs.issueparser_repo_description }}" >> $GITHUB_ENV
-          echo "REPO_VISIBILITY=${{ steps.issue-parser.outputs.issueparser_repo_visibility }}" >> $GITHUB_ENV
+        run: |
+          # Convert the repo name to a slug (lowercase, replace spaces with dashes, remove special chars)
+          REPO_NAME=$(echo "${{ fromJson(steps.parser.outputs.json).repo_name }}" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g')
+          # set values to env vars to prevent potential script injection
+          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
+          echo "REPO_DESCRIPTION=${{ fromJson(steps.parser.outputs.json).repo_description }}" >> $GITHUB_ENV
+          echo "REPO_VISIBILITY=${{ fromJson(steps.parser.outputs.json).repo_visibility }}" >> $GITHUB_ENV
 
       - name: Rename issue
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
@@ -49,16 +59,16 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              title: `New Repo: ${process.env.REPO_NAME}`
+              title: `Create Repo: ${process.env.REPO_NAME}`
             })
 
       - name: Post prepare message
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
             let commentBody
-            commentBody = `👋 Thank you for opening this new repo issue, @${{ github.actor }}.
+            commentBody = `👋 Thank you for opening this issue to create a new repository, @${{ github.actor }}.
 
             The following has been parsed from your issue body:
             - The **repo name** is set to be: **\`${{ env.REPO_NAME }}\`**
@@ -83,11 +93,11 @@ jobs:
             
       - name: Post failure message
         if: ${{ failure() }}
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             let commentBody
-            commentBody = `😢 The issue body could not be parsed, @${{ github.actor }}. Please open a new issue using the issue template and ensure your formatting and line spacing remains untouched.`
+            commentBody = `😢 The issue body could not be parsed, @${{ github.actor }}. Please open a new issue using the issue template and ensure your formatting and line spacing remains untouched.\n\nReview the [action logs](${{ github.SERVER_URL }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,

@@ -1,17 +1,20 @@
-name: new-repo-create
+name: create-repo-run
 
-run-name: 'New Repo: Issue #${{ github.event.issue.number }} by @${{ github.actor }}'
+run-name: 'Create Repo: Issue #${{ github.event.issue.number }} by @${{ github.actor }}'
 
 on:
   issue_comment:
     types: [created]
 
 jobs:
-  new-repo-create:
+  create-repo-run:
     runs-on: ubuntu-latest
     if: github.event_name == 'issue_comment' &&
       (startsWith(github.event.comment.body, '/create-repo') &&
-      contains(github.event.issue.labels.*.name, 'new-repo'))
+      contains(github.event.issue.labels.*.name, 'create-repo'))
+    permissions:
+      contents: read
+      issues: write
 
     steps:
       - uses: actions/checkout@v4
@@ -20,27 +23,35 @@ jobs:
           GITHUB_CONTEXT: ${{ toJSON(github) }}
         run: echo "$GITHUB_CONTEXT"
 
-      - uses: stefanbuck/github-issue-parser@v3
-        id: issue-parser
-        with:
-          template-path: .github/ISSUE_TEMPLATE/new-repo.yml
-
       - uses: actions/create-github-app-token@v1
         id: app-token
         with:
           app-id: ${{ vars.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
+      - name: Parse Issue
+        id: parser
+        uses: issue-ops/parser@17134bd7d0633c8267868e79fca7023745aee2f9 # v4.1.0
+        with:
+          body: ${{ github.event.issue.body }}
+
+      - name: Output Issue JSON
+        id: output-issue
+        run: echo "${{ steps.parser.outputs.json }}"
+
       - name: Set env vars
-        run: | 
-          echo "REPO_NAME=${{ steps.issue-parser.outputs.issueparser_repo_name }}" >> $GITHUB_ENV
-          echo "REPO_DESCRIPTION=${{ steps.issue-parser.outputs.issueparser_repo_description }}" >> $GITHUB_ENV
-          echo "REPO_VISIBILITY=${{ steps.issue-parser.outputs.issueparser_repo_visibility }}" >> $GITHUB_ENV
+        run: |
+          # Convert the repo name to a slug (lowercase, replace spaces with dashes, remove special chars)
+          REPO_NAME=$(echo "${{ fromJson(steps.parser.outputs.json).repo_name }}" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g')
+          # set values to env vars to prevent potential script injection
+          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
+          echo "REPO_DESCRIPTION=${{ fromJson(steps.parser.outputs.json).repo_description }}" >> $GITHUB_ENV
+          echo "REPO_VISIBILITY=${{ fromJson(steps.parser.outputs.json).repo_visibility }}" >> $GITHUB_ENV
 
       # doing this again in case someone else renamed the issue
       - name: Rename issue
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
@@ -48,12 +59,12 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              title: `New Repo: ${process.env.REPO_NAME}`
+              title: `Create Repo: ${process.env.REPO_NAME}`
             })
 
       - name: Create repository
         id: create-repo
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
@@ -70,9 +81,28 @@ jobs:
               allow_update_branch: true,
             })
 
+      # adding a commit in the newly created repo
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          repository: ${{ github.repository_owner}}/${{ env.REPO_NAME }}
+          path: ${{ env.REPO_NAME }}
+      - name: push to git repo
+        run: |
+          cd ${{ env.REPO_NAME }}
+          git config --global user.name 'josh-issueops-bot[bot]'
+          git config --global user.email '149130343+josh-issueops-bot[bot]@users.noreply.github.com'
+          # Get the current date
+          current_date=$(date)
+          # Append the current date to the README.md file
+          echo -e "\n## Created date: $current_date" >> README.md
+          git add .
+          git commit -m "ci: updating readme"
+          git push
+
       - name: Add created label and close issue
         if: ${{ success() }}
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
@@ -80,20 +110,20 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              labels: ["created", "new-repo"],
+              labels: ["created", "create-repo"],
               state: "closed"
             })
 
       - name: Post successful message
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         if: ${{ success() }}
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
             let commentBody
-            commentBody = `🚀 New repo created successfully.
+            commentBody = `🚀 Successfully created the new repository: ${{ github.repository_owner}}/${{ env.REPO_NAME }}.
 
-            Visit the following link for the repo: [https://github.com/${{ github.repository_owner }}/${{ steps.issue-parser.outputs.issueparser_repo_name }}](https://github.com/${{ github.repository_owner }}/${{ steps.issue-parser.outputs.issueparser_repo_name }})
+            Visit the following link for the repo: [${{ github.SERVER_URL }}/${{ github.repository_owner }}/${{ env.REPO_NAME }}](${{ github.SERVER_URL }}/${{ github.repository_owner }}/${{ env.REPO_NAME }})
             `
 
             await github.rest.issues.createComment({
@@ -105,11 +135,11 @@ jobs:
 
       - name: Post failure message
         if: ${{ failure() }}
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             let commentBody
-            commentBody = `😢 The new repo could not be created. Please review the [action logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
+            commentBody = `😢 The new repository could not be created. Please review the [action logs](${{ github.SERVER_URL }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,

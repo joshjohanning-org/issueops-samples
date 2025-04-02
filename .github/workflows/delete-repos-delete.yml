@@ -1,4 +1,4 @@
-name: delete-repos-delete
+name: delete-repos-run
 
 run-name: 'Delete Repos: Issue #${{ github.event.issue.number }} by @${{ github.actor }}'
 
@@ -7,11 +7,14 @@ on:
     types: [created]
 
 jobs:
-  delete-repos-delete:
+  delete-repos-run:
     runs-on: ubuntu-latest
     if: github.event_name == 'issue_comment' &&
       (startsWith(github.event.comment.body, '/delete-repos') &&
       contains(github.event.issue.labels.*.name, 'delete-repos'))
+    permissions:
+      contents: read
+      issues: write
 
     steps:
       - uses: actions/checkout@v4
@@ -20,7 +23,7 @@ jobs:
           GITHUB_CONTEXT: ${{ toJSON(github) }}
         run: echo "$GITHUB_CONTEXT"
 
-      - uses: stefanbuck/github-issue-parser@v3
+      - uses: stefanbuck/github-issue-parser@2ea9b35a8c584529ed00891a8f7e41dc46d0441e # v3.2.1
         id: issue-parser
         with:
           template-path: .github/ISSUE_TEMPLATE/delete-repos.yml
@@ -29,12 +32,12 @@ jobs:
         id: app-token
         with:
           app-id: ${{ vars.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
       # doing this again in case someone else renamed the issue
       - name: Rename issue
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         env:
           REPOSITORIES: ${{ steps.issue-parser.outputs.issueparser_repositories }}
         with:
@@ -56,7 +59,7 @@ jobs:
             })
 
       - name: ApproveOps
-        uses: joshjohanning/approveops@v2
+        uses: joshjohanning/approveops@caad905b2ba78301a0db7f484ef6fe3c770e6985 # v2.0.3
         id: check-approval
         with:
           token: ${{ steps.app-token.outputs.token }}
@@ -69,7 +72,7 @@ jobs:
         run: npm i octokit@2.1.0 @actions/core
 
       - name: Delete Repos
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             const repositories = process.env.REPOSITORIES;
@@ -80,7 +83,7 @@ jobs:
 
       - name: Add deleted label and close issue
         if: ${{ success() }}
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
@@ -93,7 +96,7 @@ jobs:
             })
 
       - name: Post successful message
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         if: ${{ success() }}
         with:
           github-token: ${{ steps.app-token.outputs.token }}
@@ -101,7 +104,7 @@ jobs:
             let commentBody
             commentBody = `🚮 Repo(s) deleted successfully.
 
-            Review the [action logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.
+            Review the [action logs](${{ github.SERVER_URL }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.
             `
 
             await github.rest.issues.createComment({
@@ -113,11 +116,11 @@ jobs:
 
       - name: Post failure message
         if: ${{ failure() && steps.check-approval.outputs.approved == 'true' }}
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             let commentBody
-            commentBody = `😢 The repo(s) could not be deleted. Please review the [action logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
+            commentBody = `😢 The repo(s) could not be deleted. Please review the [action logs](${{ github.SERVER_URL }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,

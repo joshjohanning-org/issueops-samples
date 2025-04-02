@@ -1,0 +1,27 @@
+name: labelops-deploy
+
+run-name: 'Deploy to Dev: PR #${{ github.event.pull_request.number }} by @${{ github.actor }}'
+
+on:
+  pull_request:
+    types:
+      - labeled
+
+jobs:
+  labelops-deploy:
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'deploy-dev')
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "yay!"
+      - name: remove PR label
+        run: |
+          # using gh pr edit to avoid potential projects error ${{ github.SERVER_URL }}/cli/cli/issues/6274
+          # gh pr edit ${{ github.event.pull_request.number }} --remove-label 'deploy-dev'
+          gh api -X DELETE /repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/deploy-dev
+        env:
+          GH_TOKEN: ${{ github.token }}
