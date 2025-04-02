@@ -32,7 +32,7 @@ jobs:
 
       - name: Parse Issue
         id: parser
-        uses: issue-ops/parser@v4
+        uses: issue-ops/parser@17134bd7d0633c8267868e79fca7023745aee2f9 # v4.1.0
         with:
           body: ${{ github.event.issue.body }}
 
