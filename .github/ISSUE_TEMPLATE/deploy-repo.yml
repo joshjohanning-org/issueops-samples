@@ -1,0 +1,12 @@
+name: 🚀 Deploy Repo
+description: Deploy this repo to the production IssueOps repository
+title: "Deploy Repo"
+labels: ["deploy-repo"]
+body:
+  - type: input
+    attributes:
+      label: Confirm Deployment
+      description: Type in "yes" (without the quotes) to confirm you want to deploy this repo to the production IssueOps repository
+      placeholder: "yes"
+    validations:
+      required: true
