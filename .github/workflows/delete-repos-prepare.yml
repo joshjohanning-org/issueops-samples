@@ -31,21 +31,22 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
-      - uses: stefanbuck/github-issue-parser@2ea9b35a8c584529ed00891a8f7e41dc46d0441e # v3.2.1
+      - name: Parse Issue
         id: issue-parser
+        uses: issue-ops/parser@76d5aa095754de1493cbe41934484c4287e16350
         with:
-          template-path: .github/ISSUE_TEMPLATE/delete-repos.yml
+          body: ${{ github.event.issue.body }}
 
       - name: Set env vars
         run: | 
-          echo "REPO_NAME=${{ steps.issue-parser.outputs.issueparser_repo_name }}" >> $GITHUB_ENV
-          echo "REPO_DESCRIPTION=${{ steps.issue-parser.outputs.issueparser_repo_description }}" >> $GITHUB_ENV
-          echo "REPO_VISIBILITY=${{ steps.issue-parser.outputs.issueparser_repo_visibility }}" >> $GITHUB_ENV
+          echo "REPO_NAME=${{ fromJson(steps.issue-parser.outputs.json).repo_name }}" >> $GITHUB_ENV
+          echo "REPO_DESCRIPTION=${{ fromJson(steps.issue-parser.outputs.json).repo_description }}" >> $GITHUB_ENV
+          echo "REPO_VISIBILITY=${{ fromJson(steps.issue-parser.outputs.json).repo_visibility }}" >> $GITHUB_ENV
 
       - name: Rename issue
         uses: actions/github-script@v7
         env:
-          REPOSITORIES: ${{ steps.issue-parser.outputs.issueparser_repositories }}
+          REPOSITORIES: ${{ fromJson(steps.issue-parser.outputs.json).repositories }}
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
@@ -67,7 +68,7 @@ jobs:
       - name: Post prepare message
         uses: actions/github-script@v7
         env:
-          REPOSITORIES: ${{ steps.issue-parser.outputs.issueparser_repositories }}
+          REPOSITORIES: ${{ fromJson(steps.issue-parser.outputs.json).repositories }}
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
