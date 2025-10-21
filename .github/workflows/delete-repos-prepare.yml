@@ -43,7 +43,7 @@ jobs:
           echo "REPO_VISIBILITY=${{ steps.issue-parser.outputs.issueparser_repo_visibility }}" >> $GITHUB_ENV
 
       - name: Rename issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           REPOSITORIES: ${{ steps.issue-parser.outputs.issueparser_repositories }}
         with:
@@ -65,7 +65,7 @@ jobs:
             })
 
       - name: Post prepare message
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           REPOSITORIES: ${{ steps.issue-parser.outputs.issueparser_repositories }}
         with:
@@ -106,7 +106,7 @@ jobs:
             
       - name: Post failure message
         if: ${{ failure() }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             let commentBody
