@@ -69,17 +69,26 @@ jobs:
           fail-if-approval-not-found: true
           post-successful-approval-comment: false
 
-      - name: npm install
-        run: npm i octokit@2.1.0 @actions/core
-
       - name: Delete Repos
         uses: actions/github-script@v9
         with:
+          github-token: ${{ steps.app-token.outputs.token }}
           script: |
             const repositories = process.env.REPOSITORIES;
-            await require('./.github/scripts/delete-repos.js') ({repositories});
+
+            const repos = repositories
+              .split('\n')
+              .map(s => s.trim())
+              .filter(s => s.length > 0);
+
+            for (const repo of repos) {
+              core.info(`Target repo name: ${process.env.GITHUB_REPOSITORY_OWNER}/${repo}`);
+              await github.rest.repos.delete({
+                owner: process.env.GITHUB_REPOSITORY_OWNER,
+                repo,
+              });
+            }
         env:
-          APP_TOKEN: ${{ steps.app-token.outputs.token }}
           REPOSITORIES: ${{ fromJson(steps.parser.outputs.json).repositories }}
 
       - name: Add deleted label and close issue
