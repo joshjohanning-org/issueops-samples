@@ -18,13 +18,13 @@ jobs:
       issues: write
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Write GitHub context to log
         env:
           GITHUB_CONTEXT: ${{ toJSON(github) }}
         run: echo "$GITHUB_CONTEXT"
 
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ vars.APP_ID }}
@@ -33,7 +33,7 @@ jobs:
 
       - name: Parse Issue
         id: parser
-        uses: issue-ops/parser@76d5aa095754de1493cbe41934484c4287e16350 # v4.2.0
+        uses: issue-ops/parser@cb7e2e4e5da701aad0e23e718bc4c91d442ca8ba # v5.0.0
         with:
           body: ${{ github.event.issue.body }}
 
@@ -51,7 +51,7 @@ jobs:
           echo "REPO_VISIBILITY=${{ fromJson(steps.parser.outputs.json).repo_visibility }}" >> $GITHUB_ENV
 
       - name: Rename issue
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
@@ -63,7 +63,7 @@ jobs:
             })
 
       - name: Post prepare message
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
@@ -93,7 +93,7 @@ jobs:
             
       - name: Post failure message
         if: ${{ failure() }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             let commentBody

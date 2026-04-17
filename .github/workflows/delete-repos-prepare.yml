@@ -18,34 +18,29 @@ jobs:
       issues: write
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Write GitHub context to log
         env:
           GITHUB_CONTEXT: ${{ toJSON(github) }}
         run: echo "$GITHUB_CONTEXT"
 
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ vars.APP_ID }}
           private-key: ${{ secrets.PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
-      - uses: stefanbuck/github-issue-parser@10dcc54158ba4c137713d9d69d70a2da63b6bda3 # v3.2.3
-        id: issue-parser
+      - name: Parse Issue
+        id: parser
+        uses: issue-ops/parser@cb7e2e4e5da701aad0e23e718bc4c91d442ca8ba # v5.0.0
         with:
-          template-path: .github/ISSUE_TEMPLATE/delete-repos.yml
-
-      - name: Set env vars
-        run: | 
-          echo "REPO_NAME=${{ steps.issue-parser.outputs.issueparser_repo_name }}" >> $GITHUB_ENV
-          echo "REPO_DESCRIPTION=${{ steps.issue-parser.outputs.issueparser_repo_description }}" >> $GITHUB_ENV
-          echo "REPO_VISIBILITY=${{ steps.issue-parser.outputs.issueparser_repo_visibility }}" >> $GITHUB_ENV
+          body: ${{ github.event.issue.body }}
 
       - name: Rename issue
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
-          REPOSITORIES: ${{ steps.issue-parser.outputs.issueparser_repositories }}
+          REPOSITORIES: ${{ fromJson(steps.parser.outputs.json).repositories }}
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
@@ -65,9 +60,9 @@ jobs:
             })
 
       - name: Post prepare message
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
-          REPOSITORIES: ${{ steps.issue-parser.outputs.issueparser_repositories }}
+          REPOSITORIES: ${{ fromJson(steps.parser.outputs.json).repositories }}
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
@@ -106,7 +101,7 @@ jobs:
             
       - name: Post failure message
         if: ${{ failure() }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             let commentBody
