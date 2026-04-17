@@ -20,7 +20,7 @@ body:
     validations:
       required: true
   - type: dropdown
-    id: permission
+    id: permission_level
     attributes:
       label: Permission Level
       description: The permission level to grant to the collaborator
