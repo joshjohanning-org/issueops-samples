@@ -1,8 +1,0 @@
-{
-  "name": "issueops-samples",
-  "version": "1.0.0",
-  "private": true,
-  "dependencies": {
-    "octokit": "5.0.5"
-  }
-}
