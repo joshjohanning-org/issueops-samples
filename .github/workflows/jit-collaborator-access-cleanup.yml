@@ -1,0 +1,255 @@
+name: jit-collaborator-access-cleanup
+
+run-name: 'JIT Access Cleanup'
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # daily at midnight UTC
+  issue_comment:
+    types: [created]
+
+jobs:
+  # Scheduled job: expire and remove access for all overdue issues
+  cleanup-expired:
+    name: Cleanup Expired JIT Access
+    runs-on: ubuntu-slim
+    if: github.event_name == 'schedule'
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Cleanup expired access
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const durationMap = {
+              '1 day': 1,
+              '3 days': 3,
+              '7 days': 7,
+              '14 days': 14,
+              '30 days': 30,
+            };
+
+            // Parse issue body to extract fields
+            function parseIssueBody(body) {
+              const sections = {};
+              const lines = body.split('\n');
+              let currentKey = null;
+              let currentValue = [];
+
+              for (const line of lines) {
+                if (line.startsWith('### ')) {
+                  if (currentKey) {
+                    sections[currentKey] = currentValue.join('\n').trim();
+                  }
+                  currentKey = line.substring(4).trim();
+                  currentValue = [];
+                } else {
+                  currentValue.push(line);
+                }
+              }
+              if (currentKey) {
+                sections[currentKey] = currentValue.join('\n').trim();
+              }
+
+              return sections;
+            }
+
+            // Get all open issues with both labels
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'jit-collaborator-access,access-granted',
+              state: 'open',
+            });
+
+            core.info(`Found ${issues.length} open JIT access issue(s) to check`);
+
+            for (const issue of issues) {
+              try {
+                const parsed = parseIssueBody(issue.body);
+                const username = (parsed['GitHub Username'] || '').replace(/[^a-zA-Z0-9-]/g, '');
+                const repository = (parsed['Repository'] || '').replace(/[^a-zA-Z0-9._-]/g, '');
+                const duration = parsed['Duration'] || '';
+                const durationDays = durationMap[duration];
+
+                if (!username || !repository || !durationDays) {
+                  core.warning(`Issue #${issue.number}: Could not parse required fields (username=${username}, repo=${repository}, duration=${duration}). Skipping.`);
+                  continue;
+                }
+
+                // Find when the access-granted label was added
+                const events = await github.paginate(github.rest.issues.listEvents, {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                });
+
+                const grantEvent = events
+                  .filter(e => e.event === 'labeled' && e.label && e.label.name === 'access-granted')
+                  .pop(); // get the most recent one
+
+                if (!grantEvent) {
+                  core.warning(`Issue #${issue.number}: Could not find access-granted label event. Skipping.`);
+                  continue;
+                }
+
+                const grantedAt = new Date(grantEvent.created_at);
+                const expiresAt = new Date(grantedAt);
+                expiresAt.setDate(expiresAt.getDate() + durationDays);
+                const now = new Date();
+
+                core.info(`Issue #${issue.number}: ${username} → ${repository} | Granted: ${grantedAt.toISOString()} | Expires: ${expiresAt.toISOString()} | Now: ${now.toISOString()}`);
+
+                if (now < expiresAt) {
+                  core.info(`Issue #${issue.number}: Access has not expired yet. Skipping.`);
+                  continue;
+                }
+
+                // Remove collaborator
+                core.info(`Issue #${issue.number}: Access expired. Removing ${username} from ${context.repo.owner}/${repository}...`);
+                try {
+                  await github.rest.repos.removeCollaborator({
+                    owner: context.repo.owner,
+                    repo: repository,
+                    username: username,
+                  });
+                  core.info(`Issue #${issue.number}: Successfully removed collaborator ${username} from ${repository}.`);
+                } catch (removeError) {
+                  core.warning(`Issue #${issue.number}: Failed to remove collaborator (may have been removed already): ${removeError.message}`);
+                }
+
+                // Close issue and update labels
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  labels: ['jit-collaborator-access', 'access-expired'],
+                  state: 'closed',
+                });
+
+                // Post comment
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body: `⏰ JIT collaborator access has expired and been removed.\n\n- **User:** \`${username}\`\n- **Repository:** \`${context.repo.owner}/${repository}\`\n- **Granted:** \`${grantedAt.toISOString()}\`\n- **Expired:** \`${expiresAt.toISOString()}\``,
+                });
+
+                core.info(`Issue #${issue.number}: Access expired and removed successfully.`);
+              } catch (error) {
+                core.error(`Issue #${issue.number}: Error processing issue: ${error.message}`);
+              }
+            }
+
+  # Manual removal: force remove access via /remove-access command
+  remove-access:
+    name: Remove JIT Collaborator Access
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issue_comment' &&
+      (startsWith(github.event.comment.body, '/remove-access') &&
+      contains(github.event.issue.labels.*.name, 'jit-collaborator-access'))
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Parse Issue
+        id: parser
+        uses: issue-ops/parser@cb7e2e4e5da701aad0e23e718bc4c91d442ca8ba # v5.0.0
+        with:
+          body: ${{ github.event.issue.body }}
+          issue-form-template: jit-collaborator-access.yml
+
+      - name: Set env vars
+        env:
+          PARSED_JSON: ${{ steps.parser.outputs.json }}
+        run: |
+          USERNAME=$(echo "$PARSED_JSON" | jq -r '.github_username' | sed 's/[^a-zA-Z0-9-]//g')
+          REPOSITORY=$(echo "$PARSED_JSON" | jq -r '.repository' | sed 's/[^a-zA-Z0-9._-]//g')
+          echo "USERNAME=$USERNAME" >> $GITHUB_ENV
+          echo "REPOSITORY=$REPOSITORY" >> $GITHUB_ENV
+
+      - name: Remove collaborator
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            try {
+              await github.rest.repos.removeCollaborator({
+                owner: context.repo.owner,
+                repo: process.env.REPOSITORY,
+                username: process.env.USERNAME,
+              });
+              core.info(`Successfully removed ${process.env.USERNAME} from ${context.repo.owner}/${process.env.REPOSITORY}`);
+            } catch (error) {
+              core.warning(`Failed to remove collaborator (may have been removed already): ${error.message}`);
+            }
+
+      - name: Close issue and update labels
+        if: ${{ success() }}
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['jit-collaborator-access', 'access-removed'],
+              state: 'closed',
+            })
+
+      - name: Post removal message
+        if: ${{ success() }}
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            let commentBody
+            commentBody = `🔒 JIT collaborator access has been manually removed by @${{ github.actor }}.
+
+            - **User:** \`${process.env.USERNAME}\`
+            - **Repository:** \`${process.env.GITHUB_REPOSITORY_OWNER}/${process.env.REPOSITORY}\`
+            `
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })
+
+      - name: Post failure message
+        if: ${{ failure() }}
+        uses: actions/github-script@v9
+        with:
+          script: |
+            let commentBody
+            commentBody = `😢 Collaborator access could not be removed. Please review the [action logs](${{ github.SERVER_URL }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })

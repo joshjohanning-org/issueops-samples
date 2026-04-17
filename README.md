@@ -4,6 +4,7 @@
 
 - 🆕 Create Repo (IssueOps)
 - 🪓 Delete Repo (IssueOps)
+- 🔑 JIT Collaborator Access (IssueOps)
 - 🏷️ Labelops
 - ✨ [Reusable Worfklow repo onboarder](https://github.com/joshjohanning-org/reusable-workflow-issueops-onboarder) (IssueOps) (separate repository)
 
@@ -31,7 +32,7 @@
       - `issues`: read/write (for updating/closing issues)
       - `workflows`: read/write (for pushing workflow files)
     - Organization:
-      - none
+      - `members`: read (for ApproveOps team membership checks)
 
 ### Labels
 
@@ -43,6 +44,11 @@ gh label create created
 
 gh label create delete-repos
 gh label create deleted
+
+gh label create jit-collaborator-access
+gh label create access-granted
+gh label create access-expired
+gh label create access-removed
 ```
 
 > [!TIP]
@@ -53,6 +59,17 @@ gh label create deleted
 
 - Create repo [example](https://github.com/joshjohanning-org/issueops-samples/issues/35)
 - Delete repo(s) [example](https://github.com/joshjohanning-org/issueops-samples/issues/57)
+
+## JIT Collaborator Access
+
+Grants just-in-time (JIT) collaborator access to a repository for a limited duration. Uses an IssueOps approach:
+
+1. A user opens an issue using the **🔑 JIT Collaborator Access** template, specifying the GitHub username, target repository, permission level, duration, and reason.
+2. The **prepare** workflow parses the issue and posts instructions.
+3. An admin from the `approver-team` team comments `/approve` on the issue.
+4. A user comments `/grant-access` to execute the grant. The **execute** workflow checks approval via [ApproveOps](https://github.com/joshjohanning/approveops), adds the user as a collaborator, and labels the issue `access-granted`.
+5. A **daily scheduled cleanup** job checks all open `access-granted` issues, calculates whether access has expired based on when the `access-granted` label was added and the requested duration, then removes the collaborator and closes the issue.
+6. To manually revoke access early, comment `/remove-access` on the issue.
 
 ## Notes
 

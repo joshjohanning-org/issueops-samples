@@ -1,0 +1,55 @@
+name: 🔑 JIT Collaborator Access
+description: Request just-in-time collaborator access to a repository
+title: "JIT Access Request"
+labels: ["jit-collaborator-access"]
+body:
+  - type: input
+    id: github_username
+    attributes:
+      label: GitHub Username
+      description: The GitHub username to grant collaborator access to
+      placeholder: octocat
+    validations:
+      required: true
+  - type: input
+    id: repository
+    attributes:
+      label: Repository
+      description: "The name of the repository to grant access to (repo name only, not the full org/repo)"
+      placeholder: my-repo
+    validations:
+      required: true
+  - type: dropdown
+    id: permission
+    attributes:
+      label: Permission Level
+      description: The permission level to grant to the collaborator
+      options:
+        - pull
+        - triage
+        - push
+        - maintain
+        - admin
+    validations:
+      required: true
+  - type: dropdown
+    id: duration
+    attributes:
+      label: Duration
+      description: How long should the collaborator access be granted?
+      options:
+        - 1 day
+        - 3 days
+        - 7 days
+        - 14 days
+        - 30 days
+    validations:
+      required: true
+  - type: textarea
+    id: reason
+    attributes:
+      label: Reason
+      description: Why is this collaborator access needed?
+      placeholder: Describe the reason for requesting this access...
+    validations:
+      required: true

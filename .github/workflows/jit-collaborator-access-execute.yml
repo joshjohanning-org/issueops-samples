@@ -1,0 +1,149 @@
+name: jit-collaborator-access-execute
+
+run-name: 'JIT Access Grant: Issue #${{ github.event.issue.number }} by @${{ github.actor }}'
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  jit-collaborator-access-execute:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issue_comment' &&
+      (startsWith(github.event.comment.body, '/grant-access') &&
+      contains(github.event.issue.labels.*.name, 'jit-collaborator-access'))
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v6
+      - name: Write GitHub context to log
+        env:
+          GITHUB_CONTEXT: ${{ toJSON(github) }}
+        run: echo "$GITHUB_CONTEXT"
+
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Parse Issue
+        id: parser
+        uses: issue-ops/parser@cb7e2e4e5da701aad0e23e718bc4c91d442ca8ba # v5.0.0
+        with:
+          body: ${{ github.event.issue.body }}
+          issue-form-template: jit-collaborator-access.yml
+
+      - name: Output Issue JSON
+        id: output-issue
+        run: echo "${{ steps.parser.outputs.json }}"
+
+      - name: Set env vars
+        env:
+          PARSED_JSON: ${{ steps.parser.outputs.json }}
+        run: |
+          # Sanitize username: only allow valid GitHub username characters
+          USERNAME=$(echo "$PARSED_JSON" | jq -r '.github_username' | sed 's/[^a-zA-Z0-9-]//g')
+          # Sanitize repo name: only allow valid repo name characters
+          REPOSITORY=$(echo "$PARSED_JSON" | jq -r '.repository' | sed 's/[^a-zA-Z0-9._-]//g')
+          PERMISSION=$(echo "$PARSED_JSON" | jq -r '.permission_level')
+          DURATION=$(echo "$PARSED_JSON" | jq -r '.duration')
+          echo "USERNAME=$USERNAME" >> $GITHUB_ENV
+          echo "REPOSITORY=$REPOSITORY" >> $GITHUB_ENV
+          echo "PERMISSION=$PERMISSION" >> $GITHUB_ENV
+          echo "DURATION=$DURATION" >> $GITHUB_ENV
+
+      # doing this again in case someone else renamed the issue
+      - name: Rename issue
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              title: `JIT Access: ${process.env.USERNAME} → ${process.env.GITHUB_REPOSITORY_OWNER}/${process.env.REPOSITORY} (${process.env.PERMISSION})`
+            })
+
+      - name: ApproveOps
+        uses: joshjohanning/approveops@a52491aecc83cbdb8b1f5ffb534537bdad113a2e # v4.0.0
+        id: check-approval
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          approve-command: /approve
+          team-name: approver-team
+          fail-if-approval-not-found: true
+          post-successful-approval-comment: false
+
+      - name: Add collaborator
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.repos.addCollaborator({
+              owner: context.repo.owner,
+              repo: process.env.REPOSITORY,
+              username: process.env.USERNAME,
+              permission: process.env.PERMISSION,
+            })
+
+      - name: Add access-granted label
+        if: ${{ success() }}
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ["jit-collaborator-access", "access-granted"],
+            })
+
+      - name: Post successful message
+        uses: actions/github-script@v9
+        if: ${{ success() }}
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const durationDays = parseInt(process.env.DURATION);
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + durationDays);
+
+            let commentBody
+            commentBody = `🔑 Collaborator access has been granted!
+
+            - **User:** \`${process.env.USERNAME}\`
+            - **Repository:** \`${process.env.GITHUB_REPOSITORY_OWNER}/${process.env.REPOSITORY}\`
+            - **Permission:** \`${process.env.PERMISSION}\`
+            - **Duration:** \`${process.env.DURATION}\`
+            - **Expires:** \`${expiresAt.toISOString()}\`
+
+            Access will be automatically removed after **${process.env.DURATION}** by the daily cleanup job.
+            To manually remove access before expiration, comment \`/remove-access\`.
+            `
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })
+
+      - name: Post failure message
+        if: ${{ failure() && steps.check-approval.outputs.approved == 'true' }}
+        uses: actions/github-script@v9
+        with:
+          script: |
+            let commentBody
+            commentBody = `😢 Collaborator access could not be granted. Please review the [action logs](${{ github.SERVER_URL }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })
