@@ -44,7 +44,7 @@ jobs:
           DURATION=$(echo "$PARSED_JSON" | jq -r '.duration')
 
           # Validate username: GitHub usernames are alphanumeric with single hyphens, 1-39 chars
-          if [[ -z "$USERNAME" ]] || [[ ! "$USERNAME" =~ ^[A-Za-z0-9][A-Za-z0-9-]{0,37}[A-Za-z0-9]?$ ]] || [[ "$USERNAME" == *--* ]]; then
+          if [[ -z "$USERNAME" ]] || [[ ! "$USERNAME" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$ ]] || [[ "$USERNAME" == *--* ]]; then
             echo "::error::Invalid github_username: must be a valid GitHub username."
             exit 1
           fi

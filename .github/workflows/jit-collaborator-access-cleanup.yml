@@ -86,7 +86,7 @@ jobs:
                 const duration = parsed['Duration'];
 
                 // Validate username and repository
-                if (!username || !/^[A-Za-z0-9][A-Za-z0-9-]{0,37}[A-Za-z0-9]?$/.test(username) || username.includes('--')) {
+                if (!username || !/^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(username) || username.includes('--')) {
                   core.warning(`Issue #${issue.number}: Invalid username "${username}". Skipping.`);
                   continue;
                 }
@@ -206,7 +206,7 @@ jobs:
           REPOSITORY=$(echo "$PARSED_JSON" | jq -r '.repository')
 
           # Validate username
-          if [[ -z "$USERNAME" ]] || [[ ! "$USERNAME" =~ ^[A-Za-z0-9][A-Za-z0-9-]{0,37}[A-Za-z0-9]?$ ]] || [[ "$USERNAME" == *--* ]]; then
+          if [[ -z "$USERNAME" ]] || [[ ! "$USERNAME" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$ ]] || [[ "$USERNAME" == *--* ]]; then
             echo "::error::Invalid github_username: must be a valid GitHub username."
             exit 1
           fi
