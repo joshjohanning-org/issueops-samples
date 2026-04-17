@@ -23,10 +23,11 @@ jobs:
           GITHUB_CONTEXT: ${{ toJSON(github) }}
         run: echo "$GITHUB_CONTEXT"
 
-      - uses: stefanbuck/github-issue-parser@2ea9b35a8c584529ed00891a8f7e41dc46d0441e # v3.2.1
-        id: issue-parser
+      - name: Parse Issue
+        id: parser
+        uses: issue-ops/parser@cb7e2e4e5da701aad0e23e718bc4c91d442ca8ba # v5.0.0
         with:
-          template-path: .github/ISSUE_TEMPLATE/delete-repos.yml
+          body: ${{ github.event.issue.body }}
 
       - uses: actions/create-github-app-token@v3
         id: app-token
@@ -39,7 +40,7 @@ jobs:
       - name: Rename issue
         uses: actions/github-script@v9
         env:
-          REPOSITORIES: ${{ steps.issue-parser.outputs.issueparser_repositories }}
+          REPOSITORIES: ${{ fromJson(steps.parser.outputs.json).repositories }}
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
@@ -79,7 +80,7 @@ jobs:
             await require('./.github/scripts/delete-repos.js') ({repositories});
         env:
           APP_TOKEN: ${{ steps.app-token.outputs.token }}
-          REPOSITORIES: ${{ steps.issue-parser.outputs.issueparser_repositories }}
+          REPOSITORIES: ${{ fromJson(steps.parser.outputs.json).repositories }}
 
       - name: Add deleted label and close issue
         if: ${{ success() }}
