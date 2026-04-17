@@ -19,10 +19,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-      - name: Write GitHub context to log
-        env:
-          GITHUB_CONTEXT: ${{ toJSON(github) }}
-        run: echo "$GITHUB_CONTEXT"
 
       - uses: actions/create-github-app-token@v3
         id: app-token
@@ -38,20 +34,32 @@ jobs:
           body: ${{ github.event.issue.body }}
           issue-form-template: jit-collaborator-access.yml
 
-      - name: Output Issue JSON
-        id: output-issue
-        run: echo "${{ steps.parser.outputs.json }}"
-
       - name: Set env vars
         env:
           PARSED_JSON: ${{ steps.parser.outputs.json }}
         run: |
-          # Sanitize username: only allow valid GitHub username characters
-          USERNAME=$(echo "$PARSED_JSON" | jq -r '.github_username' | sed 's/[^a-zA-Z0-9-]//g')
-          # Sanitize repo name: only allow valid repo name characters
-          REPOSITORY=$(echo "$PARSED_JSON" | jq -r '.repository' | sed 's/[^a-zA-Z0-9._-]//g')
+          USERNAME=$(echo "$PARSED_JSON" | jq -r '.github_username')
+          REPOSITORY=$(echo "$PARSED_JSON" | jq -r '.repository')
           PERMISSION=$(echo "$PARSED_JSON" | jq -r '.permission_level')
           DURATION=$(echo "$PARSED_JSON" | jq -r '.duration')
+
+          # Validate username: GitHub usernames are alphanumeric with single hyphens, 1-39 chars
+          if [[ -z "$USERNAME" ]] || [[ ! "$USERNAME" =~ ^[A-Za-z0-9][A-Za-z0-9-]{0,37}[A-Za-z0-9]?$ ]] || [[ "$USERNAME" == *--* ]]; then
+            echo "::error::Invalid github_username: must be a valid GitHub username."
+            exit 1
+          fi
+
+          # Validate repository: letters, numbers, dots, underscores, hyphens
+          if [[ -z "$REPOSITORY" ]] || [[ ! "$REPOSITORY" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::Invalid repository: must contain only letters, numbers, dots, underscores, and hyphens."
+            exit 1
+          fi
+
+          if [[ ! "$PERMISSION" =~ ^(pull|triage|push|maintain|admin)$ ]]; then
+            echo "::error::Invalid permission_level."
+            exit 1
+          fi
+
           echo "USERNAME=$USERNAME" >> $GITHUB_ENV
           echo "REPOSITORY=$REPOSITORY" >> $GITHUB_ENV
           echo "PERMISSION=$PERMISSION" >> $GITHUB_ENV

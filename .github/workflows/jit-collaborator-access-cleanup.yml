@@ -12,7 +12,7 @@ jobs:
   # Scheduled job: expire and remove access for all overdue issues
   cleanup-expired:
     name: Cleanup Expired JIT Access
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     if: github.event_name == 'schedule'
     permissions:
       contents: read
@@ -41,29 +41,26 @@ jobs:
               '30 days': 30,
             };
 
-            // Parse issue body to extract fields
+            // Parse issue body to extract fields from the exact issue form structure.
+            // Uses a strict regex that only matches the known headings in order,
+            // so free-form content in the Reason field cannot spoof other fields.
             function parseIssueBody(body) {
-              const sections = {};
-              const lines = body.split('\n');
-              let currentKey = null;
-              let currentValue = [];
+              const normalized = body.replace(/\r\n/g, '\n').trim();
+              const pattern =
+                /^### GitHub Username\s*\n+([\s\S]*?)\n+### Repository\s*\n+([\s\S]*?)\n+### Permission Level\s*\n+([\s\S]*?)\n+### Duration\s*\n+([\s\S]*?)\n+### Reason\s*\n+([\s\S]*)$/;
+              const match = normalized.match(pattern);
 
-              for (const line of lines) {
-                if (line.startsWith('### ')) {
-                  if (currentKey) {
-                    sections[currentKey] = currentValue.join('\n').trim();
-                  }
-                  currentKey = line.substring(4).trim();
-                  currentValue = [];
-                } else {
-                  currentValue.push(line);
-                }
-              }
-              if (currentKey) {
-                sections[currentKey] = currentValue.join('\n').trim();
+              if (!match) {
+                return null;
               }
 
-              return sections;
+              return {
+                'GitHub Username': match[1].trim(),
+                'Repository': match[2].trim(),
+                'Permission Level': match[3].trim(),
+                'Duration': match[4].trim(),
+                'Reason': match[5].trim(),
+              };
             }
 
             // Get all open issues with both labels
@@ -79,14 +76,33 @@ jobs:
             for (const issue of issues) {
               try {
                 const parsed = parseIssueBody(issue.body);
-                const username = (parsed['GitHub Username'] || '').replace(/[^a-zA-Z0-9-]/g, '');
-                const repository = (parsed['Repository'] || '').replace(/[^a-zA-Z0-9._-]/g, '');
-                const duration = parsed['Duration'] || '';
-                const durationDays = durationMap[duration];
-
-                if (!username || !repository || !durationDays) {
-                  core.warning(`Issue #${issue.number}: Could not parse required fields (username=${username}, repo=${repository}, duration=${duration}). Skipping.`);
+                if (!parsed) {
+                  core.warning(`Issue #${issue.number}: Issue body does not match the expected JIT access form structure. Skipping.`);
                   continue;
+                }
+
+                const username = parsed['GitHub Username'];
+                const repository = parsed['Repository'];
+                const duration = parsed['Duration'];
+
+                // Validate username and repository
+                if (!username || !/^[A-Za-z0-9][A-Za-z0-9-]{0,37}[A-Za-z0-9]?$/.test(username) || username.includes('--')) {
+                  core.warning(`Issue #${issue.number}: Invalid username "${username}". Skipping.`);
+                  continue;
+                }
+                if (!repository || !/^[A-Za-z0-9._-]+$/.test(repository)) {
+                  core.warning(`Issue #${issue.number}: Invalid repository "${repository}". Skipping.`);
+                  continue;
+                }
+
+                // Clamp duration to 1-30 days; default to 30 if invalid/missing
+                const requestedDurationDays = durationMap[duration];
+                const durationDays = Number.isInteger(requestedDurationDays)
+                  ? Math.min(30, Math.max(1, requestedDurationDays))
+                  : 30;
+
+                if (!Number.isInteger(requestedDurationDays)) {
+                  core.warning(`Issue #${issue.number}: Invalid or missing duration "${duration}". Defaulting expiration to ${durationDays} day(s) from grant time.`);
                 }
 
                 // Find when the access-granted label was added
@@ -158,6 +174,7 @@ jobs:
     name: Remove JIT Collaborator Access
     runs-on: ubuntu-latest
     if: github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request == null &&
       (startsWith(github.event.comment.body, '/remove-access') &&
       contains(github.event.issue.labels.*.name, 'jit-collaborator-access'))
     permissions:
@@ -185,8 +202,21 @@ jobs:
         env:
           PARSED_JSON: ${{ steps.parser.outputs.json }}
         run: |
-          USERNAME=$(echo "$PARSED_JSON" | jq -r '.github_username' | sed 's/[^a-zA-Z0-9-]//g')
-          REPOSITORY=$(echo "$PARSED_JSON" | jq -r '.repository' | sed 's/[^a-zA-Z0-9._-]//g')
+          USERNAME=$(echo "$PARSED_JSON" | jq -r '.github_username')
+          REPOSITORY=$(echo "$PARSED_JSON" | jq -r '.repository')
+
+          # Validate username
+          if [[ -z "$USERNAME" ]] || [[ ! "$USERNAME" =~ ^[A-Za-z0-9][A-Za-z0-9-]{0,37}[A-Za-z0-9]?$ ]] || [[ "$USERNAME" == *--* ]]; then
+            echo "::error::Invalid github_username: must be a valid GitHub username."
+            exit 1
+          fi
+
+          # Validate repository
+          if [[ -z "$REPOSITORY" ]] || [[ ! "$REPOSITORY" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::Invalid repository: must contain only letters, numbers, dots, underscores, and hyphens."
+            exit 1
+          fi
+
           echo "USERNAME=$USERNAME" >> $GITHUB_ENV
           echo "REPOSITORY=$REPOSITORY" >> $GITHUB_ENV
 
