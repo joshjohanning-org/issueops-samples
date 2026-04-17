@@ -69,7 +69,7 @@ jobs:
           post-successful-approval-comment: false
 
       - name: npm install
-        run: npm i octokit@2.1.0
+        run: npm ci
 
       - name: Delete Repos
         uses: actions/github-script@v9
