@@ -69,14 +69,28 @@ jobs:
           post-successful-approval-comment: false
 
       - name: npm install
-        run: npm i octokit@2.1.0 @actions/core@1.11.1
+        run: npm i octokit@2.1.0
 
       - name: Delete Repos
         uses: actions/github-script@v9
         with:
           script: |
+            const { Octokit } = await import('octokit');
             const repositories = process.env.REPOSITORIES;
-            await require('./.github/scripts/delete-repos.js') ({repositories});
+            const gh = new Octokit({ auth: process.env.APP_TOKEN });
+
+            const repos = repositories
+              .split('\n')
+              .map(s => s.trim())
+              .filter(s => s.length > 0);
+
+            for (const repo of repos) {
+              core.info(`Target repo name: ${process.env.GITHUB_REPOSITORY_OWNER}/${repo}`);
+              await gh.rest.repos.delete({
+                owner: process.env.GITHUB_REPOSITORY_OWNER,
+                repo,
+              });
+            }
         env:
           APP_TOKEN: ${{ steps.app-token.outputs.token }}
           REPOSITORIES: ${{ steps.issue-parser.outputs.issueparser_repositories }}
