@@ -88,6 +88,16 @@ jobs:
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
+            // Embed a machine-readable snapshot of the validated fields as an HTML
+            // comment. The execute workflow reads this to detect body modifications
+            // made after the original submission.
+            const snapshot = JSON.stringify({
+              username: process.env.USERNAME,
+              repository: process.env.REPOSITORY,
+              permission: process.env.PERMISSION,
+              duration: process.env.DURATION,
+            });
+
             let commentBody
             commentBody = `👋 Thank you for opening this JIT collaborator access request, @${{ github.actor }}.
 
@@ -115,6 +125,8 @@ jobs:
 
             > **Note:** Access will automatically expire after **${process.env.DURATION}**. A daily cleanup job will remove expired access.
             > To manually remove access before expiration, comment \`/remove-access\`.
+
+            <!-- jit-access-snapshot: ${snapshot} -->
             `
 
             await github.rest.issues.createComment({

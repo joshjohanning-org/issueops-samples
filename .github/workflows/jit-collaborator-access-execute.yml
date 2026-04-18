@@ -72,6 +72,59 @@ jobs:
           echo "DURATION=$DURATION" >> $GITHUB_ENV
 
       # doing this again in case someone else renamed the issue
+      - name: Verify fields match prepare snapshot
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            // Find the most recent bot comment containing the snapshot marker
+            const snapshotComment = comments
+              .filter(c => c.user.type === 'Bot' && c.body.includes('<!-- jit-access-snapshot:'))
+              .pop();
+
+            if (!snapshotComment) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `❌ Could not find the prepare snapshot comment. The prepare workflow may not have run, or the comment may have been deleted. Cannot proceed.`,
+              });
+              core.setFailed('No prepare snapshot found.');
+              return;
+            }
+
+            const match = snapshotComment.body.match(/<!--\s*jit-access-snapshot:\s*(\{.*?\})\s*-->/s);
+            if (!match) {
+              core.setFailed('Could not parse prepare snapshot JSON.');
+              return;
+            }
+
+            const snapshot = JSON.parse(match[1]);
+            const mismatches = [];
+            if (snapshot.username   !== process.env.USERNAME)    mismatches.push(`username: approved \`${snapshot.username}\`, current \`${process.env.USERNAME}\``);
+            if (snapshot.repository !== process.env.REPOSITORY)  mismatches.push(`repository: approved \`${snapshot.repository}\`, current \`${process.env.REPOSITORY}\``);
+            if (snapshot.permission !== process.env.PERMISSION)  mismatches.push(`permission: approved \`${snapshot.permission}\`, current \`${process.env.PERMISSION}\``);
+            if (snapshot.duration   !== process.env.DURATION)    mismatches.push(`duration: approved \`${snapshot.duration}\`, current \`${process.env.DURATION}\``);
+
+            if (mismatches.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `❌ The issue body was modified after the original request was submitted. The following fields no longer match the approved values:\n\n${mismatches.map(m => `- ${m}`).join('\n')}\n\nCannot proceed. Please open a new issue with the correct details.`,
+              });
+              core.setFailed('Issue body was modified after submission.');
+              return;
+            }
+
+            core.info('Fields match prepare snapshot — proceeding.');
+
       - name: Rename issue
         uses: actions/github-script@v9
         with:
