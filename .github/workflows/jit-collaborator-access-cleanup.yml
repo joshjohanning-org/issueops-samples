@@ -186,11 +186,8 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'issue_comment' &&
       github.event.issue.pull_request == null &&
-      (startsWith(github.event.comment.body, '/remove-access') &&
-      contains(github.event.issue.labels.*.name, 'jit-collaborator-access')) &&
-      (github.event.comment.user.login == github.event.issue.user.login ||
-      github.event.comment.author_association == 'OWNER' ||
-      github.event.comment.author_association == 'MEMBER')
+      startsWith(github.event.comment.body, '/remove-access') &&
+      contains(github.event.issue.labels.*.name, 'jit-collaborator-access')
     permissions:
       contents: read
       issues: write
@@ -233,6 +230,71 @@ jobs:
 
           echo "USERNAME=$USERNAME" >> $GITHUB_ENV
           echo "REPOSITORY=$REPOSITORY" >> $GITHUB_ENV
+
+      - name: Check authorization
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const commenter = context.actor;
+            const org = context.repo.owner;
+            const targetRepo = process.env.REPOSITORY;
+
+            // Check if the target repo exists; if not, comment and fail early
+            try {
+              await github.rest.repos.get({ owner: org, repo: targetRepo });
+            } catch (err) {
+              if (err.status === 404) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: `❌ Cannot remove access: the repository \`${org}/${targetRepo}\` no longer exists. Please close this issue manually.`,
+                });
+                core.setFailed(`Repository ${org}/${targetRepo} not found.`);
+                return;
+              }
+              throw err;
+            }
+
+            // Check 1: is the commenter an org owner?
+            let authorized = false;
+            try {
+              const membership = await github.rest.orgs.getMembershipForUser({ org, username: commenter });
+              if (membership.data.role === 'admin') {
+                core.info(`${commenter} is an org owner — authorized.`);
+                authorized = true;
+              }
+            } catch (_) {
+              // not an org member or insufficient permissions — fall through
+            }
+
+            // Check 2: is the commenter an admin on the target repo?
+            if (!authorized) {
+              try {
+                const perm = await github.rest.repos.getCollaboratorPermissionLevel({
+                  owner: org,
+                  repo: targetRepo,
+                  username: commenter,
+                });
+                if (perm.data.permission === 'admin') {
+                  core.info(`${commenter} is an admin on ${org}/${targetRepo} — authorized.`);
+                  authorized = true;
+                }
+              } catch (_) {
+                // not a collaborator or repo inaccessible — fall through
+              }
+            }
+
+            if (!authorized) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `⛔ @${commenter} is not authorized to use \`/remove-access\`. Only org owners or admins of \`${org}/${targetRepo}\` can invoke this command.`,
+              });
+              core.setFailed(`${commenter} is not authorized to remove access.`);
+            }
 
       - name: Remove collaborator
         uses: actions/github-script@v9
