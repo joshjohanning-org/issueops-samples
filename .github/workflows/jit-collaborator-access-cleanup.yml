@@ -45,6 +45,7 @@ jobs:
             // Uses a strict regex that only matches the known headings in order,
             // so free-form content in the Reason field cannot spoof other fields.
             function parseIssueBody(body) {
+              if (!body) return null;
               const normalized = body.replace(/\r\n/g, '\n').trim();
               const pattern =
                 /^### GitHub Username\s*\n+([\s\S]*?)\n+### Repository\s*\n+([\s\S]*?)\n+### Permission Level\s*\n+([\s\S]*?)\n+### Duration\s*\n+([\s\S]*?)\n+### Reason\s*\n+([\s\S]*)$/;
@@ -75,6 +76,12 @@ jobs:
 
             for (const issue of issues) {
               try {
+                // Skip pull requests (listForRepo returns both issues and PRs)
+                if (issue.pull_request) {
+                  core.info(`Skipping #${issue.number}: is a pull request, not an issue.`);
+                  continue;
+                }
+
                 const parsed = parseIssueBody(issue.body);
                 if (!parsed) {
                   core.warning(`Issue #${issue.number}: Issue body does not match the expected JIT access form structure. Skipping.`);
@@ -143,10 +150,14 @@ jobs:
                   });
                   core.info(`Issue #${issue.number}: Successfully removed collaborator ${username} from ${repository}.`);
                 } catch (removeError) {
-                  core.warning(`Issue #${issue.number}: Failed to remove collaborator (may have been removed already): ${removeError.message}`);
+                  if (removeError.status === 404) {
+                    core.info(`Issue #${issue.number}: Collaborator ${username} is already absent from ${repository}. Proceeding with issue closure.`);
+                  } else {
+                    throw removeError;
+                  }
                 }
 
-                // Close issue and update labels
+                // Close issue and update labels (only reached if removal succeeded or user was already absent)
                 await github.rest.issues.update({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
@@ -176,7 +187,10 @@ jobs:
     if: github.event_name == 'issue_comment' &&
       github.event.issue.pull_request == null &&
       (startsWith(github.event.comment.body, '/remove-access') &&
-      contains(github.event.issue.labels.*.name, 'jit-collaborator-access'))
+      contains(github.event.issue.labels.*.name, 'jit-collaborator-access')) &&
+      (github.event.comment.user.login == github.event.issue.user.login ||
+      github.event.comment.author_association == 'OWNER' ||
+      github.event.comment.author_association == 'MEMBER')
     permissions:
       contents: read
       issues: write
@@ -233,7 +247,11 @@ jobs:
               });
               core.info(`Successfully removed ${process.env.USERNAME} from ${context.repo.owner}/${process.env.REPOSITORY}`);
             } catch (error) {
-              core.warning(`Failed to remove collaborator (may have been removed already): ${error.message}`);
+              if (error.status === 404) {
+                core.info(`Collaborator ${process.env.USERNAME} is already absent from ${process.env.REPOSITORY}. Proceeding with issue closure.`);
+              } else {
+                throw error;
+              }
             }
 
       - name: Close issue and update labels

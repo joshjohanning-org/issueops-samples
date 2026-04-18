@@ -60,6 +60,12 @@ jobs:
             exit 1
           fi
 
+          # Validate duration against allowed dropdown values
+          if [[ ! "$DURATION" =~ ^(1\ day|3\ days|7\ days|14\ days|30\ days)$ ]]; then
+            echo "::error::Invalid duration: must be one of '1 day', '3 days', '7 days', '14 days', '30 days'."
+            exit 1
+          fi
+
           echo "USERNAME=$USERNAME" >> $GITHUB_ENV
           echo "REPOSITORY=$REPOSITORY" >> $GITHUB_ENV
           echo "PERMISSION=$PERMISSION" >> $GITHUB_ENV

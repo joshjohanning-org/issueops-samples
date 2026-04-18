@@ -60,6 +60,12 @@ jobs:
             exit 1
           fi
 
+          # Validate duration against allowed dropdown values
+          if [[ ! "$DURATION" =~ ^(1\ day|3\ days|7\ days|14\ days|30\ days)$ ]]; then
+            echo "::error::Invalid duration: must be one of '1 day', '3 days', '7 days', '14 days', '30 days'."
+            exit 1
+          fi
+
           echo "USERNAME=$USERNAME" >> $GITHUB_ENV
           echo "REPOSITORY=$REPOSITORY" >> $GITHUB_ENV
           echo "PERMISSION=$PERMISSION" >> $GITHUB_ENV
@@ -119,7 +125,14 @@ jobs:
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
-            const durationDays = parseInt(process.env.DURATION);
+            const durationMap = {
+              '1 day': 1,
+              '3 days': 3,
+              '7 days': 7,
+              '14 days': 14,
+              '30 days': 30,
+            };
+            const durationDays = durationMap[process.env.DURATION] || 30;
             const expiresAt = new Date();
             expiresAt.setDate(expiresAt.getDate() + durationDays);
 
