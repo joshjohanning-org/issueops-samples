@@ -1,0 +1,151 @@
+name: jit-collaborator-access-prepare
+
+run-name: 'JIT Access: Issue #${{ github.event.issue.number }} by @${{ github.actor }}'
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  jit-collaborator-access-prepare:
+    name: Prepare JIT Collaborator Access
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues' &&
+      (github.event.action == 'opened') &&
+      contains(github.event.issue.labels.*.name, 'jit-collaborator-access')
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Parse Issue
+        id: parser
+        uses: issue-ops/parser@cb7e2e4e5da701aad0e23e718bc4c91d442ca8ba # v5.0.0
+        with:
+          body: ${{ github.event.issue.body }}
+          issue-form-template: jit-collaborator-access.yml
+
+      - name: Set env vars
+        env:
+          PARSED_JSON: ${{ steps.parser.outputs.json }}
+        run: |
+          USERNAME=$(echo "$PARSED_JSON" | jq -r '.github_username')
+          REPOSITORY=$(echo "$PARSED_JSON" | jq -r '.repository')
+          PERMISSION=$(echo "$PARSED_JSON" | jq -r '.permission_level')
+          DURATION=$(echo "$PARSED_JSON" | jq -r '.duration')
+
+          # Validate username: GitHub usernames are alphanumeric with single hyphens, 1-39 chars
+          if [[ -z "$USERNAME" ]] || [[ ! "$USERNAME" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$ ]] || [[ "$USERNAME" == *--* ]]; then
+            echo "::error::Invalid github_username: must be a valid GitHub username."
+            exit 1
+          fi
+
+          # Validate repository: letters, numbers, dots, underscores, hyphens
+          if [[ -z "$REPOSITORY" ]] || [[ ! "$REPOSITORY" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::Invalid repository: must contain only letters, numbers, dots, underscores, and hyphens."
+            exit 1
+          fi
+
+          if [[ ! "$PERMISSION" =~ ^(pull|triage|push|maintain|admin)$ ]]; then
+            echo "::error::Invalid permission_level."
+            exit 1
+          fi
+
+          # Validate duration against allowed dropdown values
+          if [[ ! "$DURATION" =~ ^(1\ day|3\ days|7\ days|14\ days|30\ days)$ ]]; then
+            echo "::error::Invalid duration: must be one of '1 day', '3 days', '7 days', '14 days', '30 days'."
+            exit 1
+          fi
+
+          echo "USERNAME=$USERNAME" >> $GITHUB_ENV
+          echo "REPOSITORY=$REPOSITORY" >> $GITHUB_ENV
+          echo "PERMISSION=$PERMISSION" >> $GITHUB_ENV
+          echo "DURATION=$DURATION" >> $GITHUB_ENV
+
+      - name: Rename issue
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              title: `JIT Access: ${process.env.USERNAME} → ${process.env.GITHUB_REPOSITORY_OWNER}/${process.env.REPOSITORY} (${process.env.PERMISSION})`
+            })
+
+      - name: Post prepare message
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            // Embed a machine-readable snapshot of the validated fields as an HTML
+            // comment. The execute workflow reads this to detect body modifications
+            // made after the original submission.
+            const snapshot = JSON.stringify({
+              username: process.env.USERNAME,
+              repository: process.env.REPOSITORY,
+              permission: process.env.PERMISSION,
+              duration: process.env.DURATION,
+            });
+
+            let commentBody
+            commentBody = `👋 Thank you for opening this JIT collaborator access request, @${{ github.actor }}.
+
+            The following has been parsed from your issue body:
+            - **GitHub Username:** \`${process.env.USERNAME}\`
+            - **Repository:** \`${process.env.GITHUB_REPOSITORY_OWNER}/${process.env.REPOSITORY}\`
+            - **Permission Level:** \`${process.env.PERMISSION}\`
+            - **Duration:** \`${process.env.DURATION}\`
+
+            ## 1. Approval
+
+            Someone from the @${process.env.GITHUB_REPOSITORY_OWNER}/approver-team team must run the following command to approve:
+
+            \`\`\`
+            /approve
+            \`\`\`
+
+            ## 2. Grant Access
+
+            After approval, add the following comment to grant the collaborator access:
+
+            \`\`\`
+            /grant-access
+            \`\`\`
+
+            > **Note:** Access will automatically expire after **${process.env.DURATION}**. A daily cleanup job will remove expired access.
+            > To manually remove access before expiration, comment \`/remove-access\`.
+
+            <!-- jit-access-snapshot: ${snapshot} -->
+            `
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })
+
+      - name: Post failure message
+        if: ${{ failure() }}
+        uses: actions/github-script@v9
+        with:
+          script: |
+            let commentBody
+            commentBody = `😢 The issue body could not be parsed, @${{ github.actor }}. Please open a new issue using the issue template and ensure your formatting and line spacing remains untouched.\n\nReview the [action logs](${{ github.SERVER_URL }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })

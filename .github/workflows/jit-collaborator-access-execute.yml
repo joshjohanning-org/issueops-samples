@@ -1,0 +1,224 @@
+name: jit-collaborator-access-execute
+
+run-name: 'JIT Access Grant: Issue #${{ github.event.issue.number }} by @${{ github.actor }}'
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  jit-collaborator-access-execute:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request == null &&
+      (startsWith(github.event.comment.body, '/grant-access') &&
+      contains(github.event.issue.labels.*.name, 'jit-collaborator-access'))
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Parse Issue
+        id: parser
+        uses: issue-ops/parser@cb7e2e4e5da701aad0e23e718bc4c91d442ca8ba # v5.0.0
+        with:
+          body: ${{ github.event.issue.body }}
+          issue-form-template: jit-collaborator-access.yml
+
+      - name: Set env vars
+        env:
+          PARSED_JSON: ${{ steps.parser.outputs.json }}
+        run: |
+          USERNAME=$(echo "$PARSED_JSON" | jq -r '.github_username')
+          REPOSITORY=$(echo "$PARSED_JSON" | jq -r '.repository')
+          PERMISSION=$(echo "$PARSED_JSON" | jq -r '.permission_level')
+          DURATION=$(echo "$PARSED_JSON" | jq -r '.duration')
+
+          # Validate username: GitHub usernames are alphanumeric with single hyphens, 1-39 chars
+          if [[ -z "$USERNAME" ]] || [[ ! "$USERNAME" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$ ]] || [[ "$USERNAME" == *--* ]]; then
+            echo "::error::Invalid github_username: must be a valid GitHub username."
+            exit 1
+          fi
+
+          # Validate repository: letters, numbers, dots, underscores, hyphens
+          if [[ -z "$REPOSITORY" ]] || [[ ! "$REPOSITORY" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::Invalid repository: must contain only letters, numbers, dots, underscores, and hyphens."
+            exit 1
+          fi
+
+          if [[ ! "$PERMISSION" =~ ^(pull|triage|push|maintain|admin)$ ]]; then
+            echo "::error::Invalid permission_level."
+            exit 1
+          fi
+
+          # Validate duration against allowed dropdown values
+          if [[ ! "$DURATION" =~ ^(1\ day|3\ days|7\ days|14\ days|30\ days)$ ]]; then
+            echo "::error::Invalid duration: must be one of '1 day', '3 days', '7 days', '14 days', '30 days'."
+            exit 1
+          fi
+
+          echo "USERNAME=$USERNAME" >> $GITHUB_ENV
+          echo "REPOSITORY=$REPOSITORY" >> $GITHUB_ENV
+          echo "PERMISSION=$PERMISSION" >> $GITHUB_ENV
+          echo "DURATION=$DURATION" >> $GITHUB_ENV
+
+      # doing this again in case someone else renamed the issue
+      - name: Verify fields match prepare snapshot
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            // Find the most recent bot comment containing the snapshot marker
+            const snapshotComment = comments
+              .filter(c => c.user.type === 'Bot' && c.body.includes('<!-- jit-access-snapshot:'))
+              .pop();
+
+            if (!snapshotComment) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `❌ Could not find the prepare snapshot comment. The prepare workflow may not have run, or the comment may have been deleted. Cannot proceed.`,
+              });
+              core.setFailed('No prepare snapshot found.');
+              return;
+            }
+
+            const match = snapshotComment.body.match(/<!--\s*jit-access-snapshot:\s*(\{.*?\})\s*-->/s);
+            if (!match) {
+              core.setFailed('Could not parse prepare snapshot JSON.');
+              return;
+            }
+
+            const snapshot = JSON.parse(match[1]);
+            const mismatches = [];
+            if (snapshot.username   !== process.env.USERNAME)    mismatches.push(`username: approved \`${snapshot.username}\`, current \`${process.env.USERNAME}\``);
+            if (snapshot.repository !== process.env.REPOSITORY)  mismatches.push(`repository: approved \`${snapshot.repository}\`, current \`${process.env.REPOSITORY}\``);
+            if (snapshot.permission !== process.env.PERMISSION)  mismatches.push(`permission: approved \`${snapshot.permission}\`, current \`${process.env.PERMISSION}\``);
+            if (snapshot.duration   !== process.env.DURATION)    mismatches.push(`duration: approved \`${snapshot.duration}\`, current \`${process.env.DURATION}\``);
+
+            if (mismatches.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `❌ The issue body was modified after the original request was submitted. The following fields no longer match the approved values:\n\n${mismatches.map(m => `- ${m}`).join('\n')}\n\nCannot proceed. Please open a new issue with the correct details.`,
+              });
+              core.setFailed('Issue body was modified after submission.');
+              return;
+            }
+
+            core.info('Fields match prepare snapshot — proceeding.');
+
+      - name: Rename issue
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              title: `JIT Access: ${process.env.USERNAME} → ${process.env.GITHUB_REPOSITORY_OWNER}/${process.env.REPOSITORY} (${process.env.PERMISSION})`
+            })
+
+      - name: ApproveOps
+        uses: joshjohanning/approveops@a52491aecc83cbdb8b1f5ffb534537bdad113a2e # v4.0.0
+        id: check-approval
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          approve-command: /approve
+          team-name: approver-team
+          fail-if-approval-not-found: true
+          post-successful-approval-comment: false
+
+      - name: Add collaborator
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.repos.addCollaborator({
+              owner: context.repo.owner,
+              repo: process.env.REPOSITORY,
+              username: process.env.USERNAME,
+              permission: process.env.PERMISSION,
+            })
+
+      - name: Add access-granted label
+        if: ${{ success() }}
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ["jit-collaborator-access", "access-granted"],
+            })
+
+      - name: Post successful message
+        uses: actions/github-script@v9
+        if: ${{ success() }}
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const durationMap = {
+              '1 day': 1,
+              '3 days': 3,
+              '7 days': 7,
+              '14 days': 14,
+              '30 days': 30,
+            };
+            const durationDays = durationMap[process.env.DURATION] || 30;
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + durationDays);
+
+            let commentBody
+            commentBody = `🔑 Collaborator access has been granted!
+
+            - **User:** \`${process.env.USERNAME}\`
+            - **Repository:** \`${process.env.GITHUB_REPOSITORY_OWNER}/${process.env.REPOSITORY}\`
+            - **Permission:** \`${process.env.PERMISSION}\`
+            - **Duration:** \`${process.env.DURATION}\`
+            - **Expires:** \`${expiresAt.toISOString()}\`
+
+            Access will be automatically removed after **${process.env.DURATION}** by the daily cleanup job.
+            To manually remove access before expiration, comment \`/remove-access\`.
+            `
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })
+
+      - name: Post failure message
+        if: ${{ failure() && steps.check-approval.outputs.approved == 'true' }}
+        uses: actions/github-script@v9
+        with:
+          script: |
+            let commentBody
+            commentBody = `😢 Collaborator access could not be granted. Please review the [action logs](${{ github.SERVER_URL }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })
