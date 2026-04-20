@@ -215,7 +215,7 @@ jobs:
         with:
           script: |
             let commentBody
-            commentBody = `😢 Collaborator access could not be granted. Please review the [action logs](${{ github.SERVER_URL }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
+            commentBody = `😢 Collaborator access could not be granted. Please review the [action logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,

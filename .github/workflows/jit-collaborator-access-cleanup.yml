@@ -41,27 +41,21 @@ jobs:
               '30 days': 30,
             };
 
-            // Parse issue body to extract fields from the exact issue form structure.
-            // Uses a strict regex that only matches the known headings in order,
-            // so free-form content in the Reason field cannot spoof other fields.
-            function parseIssueBody(body) {
-              if (!body) return null;
-              const normalized = body.replace(/\r\n/g, '\n').trim();
-              const pattern =
-                /^### GitHub Username\s*\n+([\s\S]*?)\n+### Repository\s*\n+([\s\S]*?)\n+### Permission Level\s*\n+([\s\S]*?)\n+### Duration\s*\n+([\s\S]*?)\n+### Reason\s*\n+([\s\S]*)$/;
-              const match = normalized.match(pattern);
-
-              if (!match) {
-                return null;
-              }
-
-              return {
-                'GitHub Username': match[1].trim(),
-                'Repository': match[2].trim(),
-                'Permission Level': match[3].trim(),
-                'Duration': match[4].trim(),
-                'Reason': match[5].trim(),
-              };
+            // Read the validated fields from the bot's prepare snapshot comment
+            // instead of the mutable issue body.
+            async function getSnapshot(issueNumber) {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+              });
+              const snapshotComment = comments
+                .filter(c => c.user.type === 'Bot' && c.body.includes('<!-- jit-access-snapshot:'))
+                .pop();
+              if (!snapshotComment) return null;
+              const match = snapshotComment.body.match(/<!--\s*jit-access-snapshot:\s*(\{.*?\})\s*-->/s);
+              if (!match) return null;
+              return JSON.parse(match[1]);
             }
 
             // Get all open issues with both labels
@@ -82,35 +76,19 @@ jobs:
                   continue;
                 }
 
-                const parsed = parseIssueBody(issue.body);
-                if (!parsed) {
-                  core.warning(`Issue #${issue.number}: Issue body does not match the expected JIT access form structure. Skipping.`);
+                const snapshot = await getSnapshot(issue.number);
+                if (!snapshot) {
+                  core.warning(`Issue #${issue.number}: No prepare snapshot found. Skipping.`);
                   continue;
                 }
 
-                const username = parsed['GitHub Username'];
-                const repository = parsed['Repository'];
-                const duration = parsed['Duration'];
+                const username = snapshot.username;
+                const repository = snapshot.repository;
+                const duration = snapshot.duration;
 
-                // Validate username and repository
-                if (!username || !/^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(username) || username.includes('--')) {
-                  core.warning(`Issue #${issue.number}: Invalid username "${username}". Skipping.`);
-                  continue;
-                }
-                if (!repository || !/^[A-Za-z0-9._-]+$/.test(repository)) {
-                  core.warning(`Issue #${issue.number}: Invalid repository "${repository}". Skipping.`);
-                  continue;
-                }
-
-                // Clamp duration to 1-30 days; default to 30 if invalid/missing
-                const requestedDurationDays = durationMap[duration];
-                const durationDays = Number.isInteger(requestedDurationDays)
-                  ? Math.min(30, Math.max(1, requestedDurationDays))
-                  : 30;
-
-                if (!Number.isInteger(requestedDurationDays)) {
-                  core.warning(`Issue #${issue.number}: Invalid or missing duration "${duration}". Defaulting expiration to ${durationDays} day(s) from grant time.`);
-                }
+                // Snapshot fields were validated at prepare time; durationMap lookup
+                // is the only extra guard needed here.
+                const durationDays = durationMap[duration] ?? 30;
 
                 // Find when the access-granted label was added
                 const events = await github.paginate(github.rest.issues.listEvents, {
@@ -187,7 +165,8 @@ jobs:
     if: github.event_name == 'issue_comment' &&
       github.event.issue.pull_request == null &&
       startsWith(github.event.comment.body, '/remove-access') &&
-      contains(github.event.issue.labels.*.name, 'jit-collaborator-access')
+      contains(github.event.issue.labels.*.name, 'jit-collaborator-access') &&
+      contains(github.event.issue.labels.*.name, 'access-granted')
     permissions:
       contents: read
       issues: write
@@ -230,6 +209,33 @@ jobs:
 
           echo "USERNAME=$USERNAME" >> $GITHUB_ENV
           echo "REPOSITORY=$REPOSITORY" >> $GITHUB_ENV
+
+      - name: Use prepare snapshot values
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const snapshotComment = comments
+              .filter(c => c.user.type === 'Bot' && c.body.includes('<!-- jit-access-snapshot:'))
+              .pop();
+            if (!snapshotComment) {
+              core.warning('No prepare snapshot found — using issue body values.');
+              return;
+            }
+            const match = snapshotComment.body.match(/<!--\s*jit-access-snapshot:\s*(\{.*?\})\s*-->/s);
+            if (!match) {
+              core.warning('Could not parse prepare snapshot — using issue body values.');
+              return;
+            }
+            const snapshot = JSON.parse(match[1]);
+            core.exportVariable('USERNAME', snapshot.username);
+            core.exportVariable('REPOSITORY', snapshot.repository);
+            core.info(`Using snapshot values: username=${snapshot.username}, repository=${snapshot.repository}`);
 
       - name: Check authorization
         uses: actions/github-script@v9
@@ -356,7 +362,7 @@ jobs:
         with:
           script: |
             let commentBody
-            commentBody = `😢 Collaborator access could not be removed. Please review the [action logs](${{ github.SERVER_URL }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
+            commentBody = `😢 Collaborator access could not be removed. Please review the [action logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
