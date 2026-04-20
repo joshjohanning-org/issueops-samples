@@ -18,9 +18,9 @@ jobs:
       issues: write
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v6
 
-      - uses: actions/create-github-app-token@v3
+      - uses: actions/create-github-app-token@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v3
         id: app-token
         with:
           app-id: ${{ vars.APP_ID }}
@@ -73,7 +73,7 @@ jobs:
 
       # doing this again in case someone else renamed the issue
       - name: Verify fields match prepare snapshot
-        uses: actions/github-script@v9
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
@@ -83,9 +83,10 @@ jobs:
               issue_number: context.issue.number,
             });
 
-            // Find the most recent bot comment containing the snapshot marker
+            // Find the most recent bot comment containing the snapshot marker.
+            // Verify the bot author to prevent spoofing by other bots.
             const snapshotComment = comments
-              .filter(c => c.user.type === 'Bot' && c.body.includes('<!-- jit-access-snapshot:'))
+              .filter(c => c.user.type === 'Bot' && c.user.login !== 'dependabot[bot]' && c.body.includes('<!-- jit-access-snapshot:'))
               .pop();
 
             if (!snapshotComment) {
@@ -126,7 +127,7 @@ jobs:
             core.info('Fields match prepare snapshot — proceeding.');
 
       - name: Rename issue
-        uses: actions/github-script@v9
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
@@ -148,7 +149,7 @@ jobs:
           post-successful-approval-comment: false
 
       - name: Add collaborator
-        uses: actions/github-script@v9
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
@@ -161,7 +162,7 @@ jobs:
 
       - name: Add access-granted label
         if: ${{ success() }}
-        uses: actions/github-script@v9
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
@@ -173,7 +174,7 @@ jobs:
             })
 
       - name: Post successful message
-        uses: actions/github-script@v9
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         if: ${{ success() }}
         with:
           github-token: ${{ steps.app-token.outputs.token }}
@@ -211,7 +212,7 @@ jobs:
 
       - name: Post failure message
         if: ${{ failure() && steps.check-approval.outputs.approved == 'true' }}
-        uses: actions/github-script@v9
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         with:
           script: |
             let commentBody
