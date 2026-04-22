@@ -132,8 +132,6 @@ jobs:
 
             core.info('Fields match prepare snapshot — proceeding.');
 
-            core.info('Fields match prepare snapshot — proceeding.');
-
       - name: Rename issue
         uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         with:
