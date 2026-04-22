@@ -80,7 +80,42 @@ jobs:
 
                 const snapshot = await getSnapshot(issue.number);
                 if (!snapshot) {
-                  core.warning(`Issue #${issue.number}: No prepare snapshot found. Skipping.`);
+                  // Fail closed: flag for manual intervention instead of silently skipping.
+                  // This prevents indefinite access if the snapshot comment is deleted or missing.
+                  const attentionLabel = 'access-needs-attention';
+                  const attentionMarker = '<!-- jit-access-cleanup:missing-snapshot -->';
+
+                  core.warning(`Issue #${issue.number}: No prepare snapshot found. Flagging for manual intervention.`);
+
+                  await github.rest.issues.addLabels({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    labels: [attentionLabel],
+                  });
+
+                  const issueComments = await github.paginate(github.rest.issues.listComments, {
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                  });
+
+                  const alreadyFlagged = issueComments.some((comment) =>
+                    typeof comment.body === 'string' && comment.body.includes(attentionMarker)
+                  );
+
+                  if (!alreadyFlagged) {
+                    await github.rest.issues.createComment({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: issue.number,
+                      body:
+                        `${attentionMarker}\n` +
+                        `Automated cleanup could not find the prepare snapshot for this JIT access request, so it could not safely determine the access details to remove.\n\n` +
+                        `The issue has been labeled \`${attentionLabel}\` for manual review. Please verify whether collaborator access is still active and remove it manually if needed.`,
+                    });
+                  }
+
                   continue;
                 }
 
@@ -224,11 +259,47 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.issue.number,
             });
-            const snapshotComment = comments
+            const snapshotComments = comments
               .filter(c => c.user.type === 'Bot' && c.body.includes('<!-- jit-access-snapshot:'))
-              .pop();
+              .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            const snapshotComment = snapshotComments[snapshotComments.length - 1]; // get the most recent one
             if (!snapshotComment) {
-              core.warning('No prepare snapshot found — using issue body values.');
+              // Fail closed: flag for manual intervention instead of silently using body values.
+              const attentionLabel = 'access-needs-attention';
+              const attentionMarker = '<!-- jit-access-cleanup:missing-snapshot -->';
+
+              core.warning(`Issue #${context.issue.number}: No prepare snapshot found. Flagging for manual intervention.`);
+
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: [attentionLabel],
+              });
+
+              const issueComments = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+              });
+
+              const alreadyFlagged = issueComments.some((comment) =>
+                typeof comment.body === 'string' && comment.body.includes(attentionMarker)
+              );
+
+              if (!alreadyFlagged) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body:
+                    `${attentionMarker}\n` +
+                    `Automated cleanup could not find the prepare snapshot for this JIT access request, so it could not safely determine the access details to remove.\n\n` +
+                    `The issue has been labeled \`${attentionLabel}\` for manual review. Please verify whether collaborator access is still active and remove it manually if needed.`,
+                });
+              }
+
+              core.setFailed('No prepare snapshot found.');
               return;
             }
             const match = snapshotComment.body.match(/<!--\s*jit-access-snapshot:\s*(\{.*?\})\s*-->/s);
