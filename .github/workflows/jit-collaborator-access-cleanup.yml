@@ -42,16 +42,18 @@ jobs:
             };
 
             // Read the validated fields from the bot's prepare snapshot comment
-            // instead of the mutable issue body.
+            // instead of the mutable issue body. Filter by bot identity to prevent
+            // spoofing by other bots, and sort by created_at to select the newest.
             async function getSnapshot(issueNumber) {
               const comments = await github.paginate(github.rest.issues.listComments, {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
               });
-              const snapshotComment = comments
-                .filter(c => c.user.type === 'Bot' && c.body.includes('<!-- jit-access-snapshot:'))
-                .pop();
+              const snapshotComments = comments
+                .filter(c => c.user.type === 'Bot' && c.user.login !== 'dependabot[bot]' && c.body.includes('<!-- jit-access-snapshot:'))
+                .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+              const snapshotComment = snapshotComments[snapshotComments.length - 1]; // get the most recent one deterministically
               if (!snapshotComment) return null;
               const match = snapshotComment.body.match(/<!--\s*jit-access-snapshot:\s*(\{.*?\})\s*-->/s);
               if (!match) return null;
@@ -90,16 +92,18 @@ jobs:
                 // is the only extra guard needed here.
                 const durationDays = durationMap[duration] ?? 30;
 
-                // Find when the access-granted label was added
+                // Find when the access-granted label was added. Sort by created_at
+                // to select the most recent one deterministically.
                 const events = await github.paginate(github.rest.issues.listEvents, {
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issue.number,
                 });
 
-                const grantEvent = events
+                const grantEvents = events
                   .filter(e => e.event === 'labeled' && e.label && e.label.name === 'access-granted')
-                  .pop(); // get the most recent one
+                  .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                const grantEvent = grantEvents[grantEvents.length - 1]; // get the most recent one deterministically
 
                 if (!grantEvent) {
                   core.warning(`Issue #${issue.number}: Could not find access-granted label event. Skipping.`);
@@ -358,7 +362,7 @@ jobs:
 
       - name: Post failure message
         if: ${{ failure() }}
-        uses: actions/github-script@v9
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         with:
           script: |
             let commentBody

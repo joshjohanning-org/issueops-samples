@@ -84,10 +84,12 @@ jobs:
             });
 
             // Find the most recent bot comment containing the snapshot marker.
-            // Verify the bot author to prevent spoofing by other bots.
-            const snapshotComment = comments
+            // Sort by created_at to select the newest match deterministically,
+            // and filter by bot identity to prevent spoofing by other bots.
+            const snapshotComments = comments
               .filter(c => c.user.type === 'Bot' && c.user.login !== 'dependabot[bot]' && c.body.includes('<!-- jit-access-snapshot:'))
-              .pop();
+              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            const snapshotComment = snapshotComments[0]; // get the most recent one
 
             if (!snapshotComment) {
               await github.rest.issues.createComment({
