@@ -42,8 +42,11 @@ jobs:
             };
 
             // Read the validated fields from the bot's prepare snapshot comment
-            // instead of the mutable issue body. Filter by bot identity to prevent
-            // spoofing by other bots, and sort by created_at to select the newest.
+            // instead of the mutable issue body. Verify the snapshot comment author
+            // matches the authenticated GitHub App, and sort by created_at to select the newest.
+            const app = await github.rest.apps.getAuthenticated();
+            const expectedBotLogin = `${app.data.slug}[bot]`;
+
             async function getSnapshot(issueNumber) {
               const comments = await github.paginate(github.rest.issues.listComments, {
                 owner: context.repo.owner,
@@ -51,13 +54,17 @@ jobs:
                 issue_number: issueNumber,
               });
               const snapshotComments = comments
-                .filter(c => c.user.type === 'Bot' && c.user.login !== 'dependabot[bot]' && c.body.includes('<!-- jit-access-snapshot:'))
+                .filter(c => c.user.type === 'Bot' && c.user.login === expectedBotLogin && c.body.includes('<!-- jit-access-snapshot:'))
                 .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
               const snapshotComment = snapshotComments[snapshotComments.length - 1]; // get the most recent one deterministically
               if (!snapshotComment) return null;
               const match = snapshotComment.body.match(/<!--\s*jit-access-snapshot:\s*(\{.*?\})\s*-->/s);
               if (!match) return null;
-              return JSON.parse(match[1]);
+              try {
+                return JSON.parse(match[1]);
+              } catch {
+                return null;
+              }
             }
 
             // Get all open issues with both labels
@@ -254,13 +261,16 @@ jobs:
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
+            const app = await github.rest.apps.getAuthenticated();
+            const expectedBotLogin = `${app.data.slug}[bot]`;
+
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
             });
             const snapshotComments = comments
-              .filter(c => c.user.type === 'Bot' && c.body.includes('<!-- jit-access-snapshot:'))
+              .filter(c => c.user.type === 'Bot' && c.user.login === expectedBotLogin && c.body.includes('<!-- jit-access-snapshot:'))
               .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
             const snapshotComment = snapshotComments[snapshotComments.length - 1]; // get the most recent one
             if (!snapshotComment) {
@@ -342,7 +352,13 @@ jobs:
               core.setFailed('Malformed prepare snapshot.');
               return;
             }
-            const snapshot = JSON.parse(match[1]);
+            let snapshot;
+            try {
+              snapshot = JSON.parse(match[1]);
+            } catch {
+              core.warning('Malformed JSON in prepare snapshot — using issue body values.');
+              return;
+            }
             core.exportVariable('USERNAME', snapshot.username);
             core.exportVariable('REPOSITORY', snapshot.repository);
             core.info(`Using snapshot values: username=${snapshot.username}, repository=${snapshot.repository}`);

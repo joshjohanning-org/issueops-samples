@@ -49,6 +49,7 @@ gh label create jit-collaborator-access
 gh label create access-granted
 gh label create access-expired
 gh label create access-removed
+gh label create access-needs-attention
 ```
 
 > [!TIP]
