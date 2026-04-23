@@ -1,0 +1,497 @@
+name: jit-collaborator-access-cleanup
+
+run-name: 'JIT Access Cleanup'
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # daily at midnight UTC
+  issue_comment:
+    types: [created]
+
+jobs:
+  # Scheduled job: expire and remove access for all overdue issues
+  cleanup-expired:
+    name: Cleanup Expired JIT Access
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v6
+
+      - uses: actions/create-github-app-token@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v3
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Cleanup expired access
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const durationMap = {
+              '1 day': 1,
+              '3 days': 3,
+              '7 days': 7,
+              '14 days': 14,
+              '30 days': 30,
+            };
+
+            // Read the validated fields from the bot's prepare snapshot comment
+            // instead of the mutable issue body. Verify the snapshot comment author
+            // matches the authenticated GitHub App, and sort by created_at to select the newest.
+            const app = await github.rest.apps.getAuthenticated();
+            const expectedBotLogin = `${app.data.slug}[bot]`;
+
+            async function getSnapshot(issueNumber) {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+              });
+              const snapshotComments = comments
+                .filter(c => c.user.type === 'Bot' && c.user.login === expectedBotLogin && c.body.includes('<!-- jit-access-snapshot:'))
+                .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+              const snapshotComment = snapshotComments[snapshotComments.length - 1]; // get the most recent one deterministically
+              if (!snapshotComment) return null;
+              const match = snapshotComment.body.match(/<!--\s*jit-access-snapshot:\s*(\{.*?\})\s*-->/s);
+              if (!match) return null;
+              try {
+                return JSON.parse(match[1]);
+              } catch {
+                return null;
+              }
+            }
+
+            // Get all open issues with both labels
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'jit-collaborator-access,access-granted',
+              state: 'open',
+            });
+
+            core.info(`Found ${issues.length} open JIT access issue(s) to check`);
+
+            for (const issue of issues) {
+              try {
+                // Skip pull requests (listForRepo returns both issues and PRs)
+                if (issue.pull_request) {
+                  core.info(`Skipping #${issue.number}: is a pull request, not an issue.`);
+                  continue;
+                }
+
+                const snapshot = await getSnapshot(issue.number);
+                if (!snapshot) {
+                  // Fail closed: flag for manual intervention instead of silently skipping.
+                  // This prevents indefinite access if the snapshot comment is deleted or missing.
+                  const attentionLabel = 'access-needs-attention';
+                  const attentionMarker = '<!-- jit-access-cleanup:missing-snapshot -->';
+
+                  core.warning(`Issue #${issue.number}: No prepare snapshot found. Flagging for manual intervention.`);
+
+                  await github.rest.issues.addLabels({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    labels: [attentionLabel],
+                  });
+
+                  const issueComments = await github.paginate(github.rest.issues.listComments, {
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                  });
+
+                  const alreadyFlagged = issueComments.some((comment) =>
+                    typeof comment.body === 'string' && comment.body.includes(attentionMarker)
+                  );
+
+                  if (!alreadyFlagged) {
+                    await github.rest.issues.createComment({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: issue.number,
+                      body:
+                        `${attentionMarker}\n` +
+                        `Automated cleanup could not find the prepare snapshot for this JIT access request, so it could not safely determine the access details to remove.\n\n` +
+                        `The issue has been labeled \`${attentionLabel}\` for manual review. Please verify whether collaborator access is still active and remove it manually if needed.`,
+                    });
+                  }
+
+                  continue;
+                }
+
+                const username = snapshot.username;
+                const repository = snapshot.repository;
+                const duration = snapshot.duration;
+
+                // Snapshot fields were validated at prepare time; durationMap lookup
+                // is the only extra guard needed here.
+                const durationDays = durationMap[duration] ?? 30;
+
+                // Find when the access-granted label was added. Sort by created_at
+                // to select the most recent one deterministically.
+                const events = await github.paginate(github.rest.issues.listEvents, {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                });
+
+                const grantEvents = events
+                  .filter(e => e.event === 'labeled' && e.label && e.label.name === 'access-granted')
+                  .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                const grantEvent = grantEvents[grantEvents.length - 1]; // get the most recent one deterministically
+
+                if (!grantEvent) {
+                  core.warning(`Issue #${issue.number}: Could not find access-granted label event. Skipping.`);
+                  continue;
+                }
+
+                const grantedAt = new Date(grantEvent.created_at);
+                const expiresAt = new Date(grantedAt);
+                expiresAt.setDate(expiresAt.getDate() + durationDays);
+                const now = new Date();
+
+                core.info(`Issue #${issue.number}: ${username} → ${repository} | Granted: ${grantedAt.toISOString()} | Expires: ${expiresAt.toISOString()} | Now: ${now.toISOString()}`);
+
+                if (now < expiresAt) {
+                  core.info(`Issue #${issue.number}: Access has not expired yet. Skipping.`);
+                  continue;
+                }
+
+                // Remove collaborator
+                core.info(`Issue #${issue.number}: Access expired. Removing ${username} from ${context.repo.owner}/${repository}...`);
+                try {
+                  await github.rest.repos.removeCollaborator({
+                    owner: context.repo.owner,
+                    repo: repository,
+                    username: username,
+                  });
+                  core.info(`Issue #${issue.number}: Successfully removed collaborator ${username} from ${repository}.`);
+                } catch (removeError) {
+                  if (removeError.status === 404) {
+                    core.info(`Issue #${issue.number}: Collaborator ${username} is already absent from ${repository}. Proceeding with issue closure.`);
+                  } else {
+                    throw removeError;
+                  }
+                }
+
+                // Close issue and update labels (only reached if removal succeeded or user was already absent)
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  labels: ['jit-collaborator-access', 'access-expired'],
+                  state: 'closed',
+                });
+
+                // Post comment
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body: `⏰ JIT collaborator access has expired and been removed.\n\n- **User:** \`${username}\`\n- **Repository:** \`${context.repo.owner}/${repository}\`\n- **Granted:** \`${grantedAt.toISOString()}\`\n- **Expired:** \`${expiresAt.toISOString()}\``,
+                });
+
+                core.info(`Issue #${issue.number}: Access expired and removed successfully.`);
+              } catch (error) {
+                core.error(`Issue #${issue.number}: Error processing issue: ${error.message}`);
+              }
+            }
+
+  # Manual removal: force remove access via /remove-access command
+  remove-access:
+    name: Remove JIT Collaborator Access
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request == null &&
+      startsWith(github.event.comment.body, '/remove-access') &&
+      contains(github.event.issue.labels.*.name, 'jit-collaborator-access') &&
+      contains(github.event.issue.labels.*.name, 'access-granted')
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v6
+
+      - uses: actions/create-github-app-token@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v3
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Parse Issue
+        id: parser
+        uses: issue-ops/parser@cb7e2e4e5da701aad0e23e718bc4c91d442ca8ba # v5.0.0
+        with:
+          body: ${{ github.event.issue.body }}
+          issue-form-template: jit-collaborator-access.yml
+
+      - name: Set env vars
+        env:
+          PARSED_JSON: ${{ steps.parser.outputs.json }}
+        run: |
+          USERNAME=$(echo "$PARSED_JSON" | jq -r '.github_username')
+          REPOSITORY=$(echo "$PARSED_JSON" | jq -r '.repository')
+
+          # Validate username
+          if [[ -z "$USERNAME" ]] || [[ ! "$USERNAME" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$ ]] || [[ "$USERNAME" == *--* ]]; then
+            echo "::error::Invalid github_username: must be a valid GitHub username."
+            exit 1
+          fi
+
+          # Validate repository
+          if [[ -z "$REPOSITORY" ]] || [[ ! "$REPOSITORY" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::Invalid repository: must contain only letters, numbers, dots, underscores, and hyphens."
+            exit 1
+          fi
+
+          echo "USERNAME=$USERNAME" >> $GITHUB_ENV
+          echo "REPOSITORY=$REPOSITORY" >> $GITHUB_ENV
+
+      - name: Use prepare snapshot values
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const app = await github.rest.apps.getAuthenticated();
+            const expectedBotLogin = `${app.data.slug}[bot]`;
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const snapshotComments = comments
+              .filter(c => c.user.type === 'Bot' && c.user.login === expectedBotLogin && c.body.includes('<!-- jit-access-snapshot:'))
+              .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            const snapshotComment = snapshotComments[snapshotComments.length - 1]; // get the most recent one
+            if (!snapshotComment) {
+              // Fail closed: flag for manual intervention instead of silently using body values.
+              const attentionLabel = 'access-needs-attention';
+              const attentionMarker = '<!-- jit-access-cleanup:missing-snapshot -->';
+
+              core.warning(`Issue #${context.issue.number}: No prepare snapshot found. Flagging for manual intervention.`);
+
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: [attentionLabel],
+              });
+
+              const issueComments = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+              });
+
+              const alreadyFlagged = issueComments.some((comment) =>
+                typeof comment.body === 'string' && comment.body.includes(attentionMarker)
+              );
+
+              if (!alreadyFlagged) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body:
+                    `${attentionMarker}\n` +
+                    `Automated cleanup could not find the prepare snapshot for this JIT access request, so it could not safely determine the access details to remove.\n\n` +
+                    `The issue has been labeled \`${attentionLabel}\` for manual review. Please verify whether collaborator access is still active and remove it manually if needed.`,
+                });
+              }
+
+              core.setFailed('No prepare snapshot found.');
+              return;
+            }
+            const match = snapshotComment.body.match(/<!--\s*jit-access-snapshot:\s*(\{.*?\})\s*-->/s);
+            if (!match) {
+              // Fail closed: malformed snapshot prevents using body values (prevents tampering).
+              const attentionLabel = 'access-needs-attention';
+              const attentionMarker = '<!-- jit-access-cleanup:malformed-snapshot -->';
+
+              core.warning(`Issue #${context.issue.number}: Snapshot comment exists but JSON is malformed. Flagging for manual intervention.`);
+
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: [attentionLabel],
+              });
+
+              const issueComments = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+              });
+
+              const alreadyFlagged = issueComments.some((comment) =>
+                typeof comment.body === 'string' && comment.body.includes(attentionMarker)
+              );
+
+              if (!alreadyFlagged) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body:
+                    `${attentionMarker}\n` +
+                    `Automated cleanup found a prepare snapshot comment for this JIT access request, but the JSON is malformed and cannot be parsed.\n\n` +
+                    `The issue has been labeled \`${attentionLabel}\` for manual review. Please verify the snapshot format and manually remove collaborator access if needed.`,
+                });
+              }
+
+              core.setFailed('Malformed prepare snapshot.');
+              return;
+            }
+            let snapshot;
+            try {
+              snapshot = JSON.parse(match[1]);
+            } catch {
+              core.warning('Malformed JSON in prepare snapshot — using issue body values.');
+              return;
+            }
+            core.exportVariable('USERNAME', snapshot.username);
+            core.exportVariable('REPOSITORY', snapshot.repository);
+            core.info(`Using snapshot values: username=${snapshot.username}, repository=${snapshot.repository}`);
+
+      - name: Check authorization
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const commenter = context.actor;
+            const org = context.repo.owner;
+            const targetRepo = process.env.REPOSITORY;
+
+            // Check if the target repo exists; if not, comment and fail early
+            try {
+              await github.rest.repos.get({ owner: org, repo: targetRepo });
+            } catch (err) {
+              if (err.status === 404) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: `❌ Cannot remove access: the repository \`${org}/${targetRepo}\` no longer exists. Please close this issue manually.`,
+                });
+                core.setFailed(`Repository ${org}/${targetRepo} not found.`);
+                return;
+              }
+              throw err;
+            }
+
+            // Check 1: is the commenter an org owner?
+            let authorized = false;
+            try {
+              const membership = await github.rest.orgs.getMembershipForUser({ org, username: commenter });
+              if (membership.data.role === 'admin') {
+                core.info(`${commenter} is an org owner — authorized.`);
+                authorized = true;
+              }
+            } catch (_) {
+              // not an org member or insufficient permissions — fall through
+            }
+
+            // Check 2: is the commenter an admin on the target repo?
+            if (!authorized) {
+              try {
+                const perm = await github.rest.repos.getCollaboratorPermissionLevel({
+                  owner: org,
+                  repo: targetRepo,
+                  username: commenter,
+                });
+                if (perm.data.permission === 'admin') {
+                  core.info(`${commenter} is an admin on ${org}/${targetRepo} — authorized.`);
+                  authorized = true;
+                }
+              } catch (_) {
+                // not a collaborator or repo inaccessible — fall through
+              }
+            }
+
+            if (!authorized) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `⛔ @${commenter} is not authorized to use \`/remove-access\`. Only org owners or admins of \`${org}/${targetRepo}\` can invoke this command.`,
+              });
+              core.setFailed(`${commenter} is not authorized to remove access.`);
+            }
+
+      - name: Remove collaborator
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            try {
+              await github.rest.repos.removeCollaborator({
+                owner: context.repo.owner,
+                repo: process.env.REPOSITORY,
+                username: process.env.USERNAME,
+              });
+              core.info(`Successfully removed ${process.env.USERNAME} from ${context.repo.owner}/${process.env.REPOSITORY}`);
+            } catch (error) {
+              if (error.status === 404) {
+                core.info(`Collaborator ${process.env.USERNAME} is already absent from ${process.env.REPOSITORY}. Proceeding with issue closure.`);
+              } else {
+                throw error;
+              }
+            }
+
+      - name: Close issue and update labels
+        if: ${{ success() }}
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['jit-collaborator-access', 'access-removed'],
+              state: 'closed',
+            })
+
+      - name: Post removal message
+        if: ${{ success() }}
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            let commentBody
+            commentBody = `🔒 JIT collaborator access has been manually removed by @${{ github.actor }}.
+
+            - **User:** \`${process.env.USERNAME}\`
+            - **Repository:** \`${process.env.GITHUB_REPOSITORY_OWNER}/${process.env.REPOSITORY}\`
+            `
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })
+
+      - name: Post failure message
+        if: ${{ failure() }}
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          script: |
+            let commentBody
+            commentBody = `😢 Collaborator access could not be removed. Please review the [action logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })
