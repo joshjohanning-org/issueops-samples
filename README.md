@@ -5,6 +5,7 @@
 - 🆕 Create Repo (IssueOps)
 - 🪓 Delete Repo (IssueOps)
 - 🔑 JIT Collaborator Access (IssueOps)
+- 👥 Team Repo Access (IssueOps)
 - 🏷️ Labelops
 - ✨ [Reusable Workflow repo onboarder](https://github.com/joshjohanning-org/reusable-workflow-issueops-onboarder) (IssueOps) (separate repository)
 
@@ -32,7 +33,7 @@
       - `issues`: read/write (for updating/closing issues)
       - `workflows`: read/write (for pushing workflow files)
     - Organization:
-      - `members`: read (for ApproveOps team membership checks)
+      - `members`: read/write (for ApproveOps team membership checks and team-repo operations)
 
 ### Labels
 
@@ -50,6 +51,10 @@ gh label create access-granted
 gh label create access-expired
 gh label create access-removed
 gh label create access-needs-attention
+
+gh label create team-ops
+gh label create team-added
+gh label create team-removed
 ```
 
 > [!TIP]
@@ -71,6 +76,15 @@ Grants just-in-time (JIT) collaborator access to a repository for a limited dura
 4. A user comments `/grant-access` to execute the grant. The **execute** workflow checks approval via [ApproveOps](https://github.com/joshjohanning/approveops), adds the user as a collaborator, and labels the issue `access-granted`.
 5. A **daily scheduled cleanup** job checks all open `access-granted` issues, calculates whether access has expired based on when the `access-granted` label was added and the requested duration, then removes the collaborator and closes the issue.
 6. To manually revoke access early, comment `/remove-access` on the issue.
+
+## Team Repo Access
+
+Manages team access to repositories via IssueOps. Supports both adding and removing a team's access:
+
+1. A user opens an issue using the **👥 Team Repo Access** template, specifying the action (add/remove), team slug, target repository, permission level, and reason.
+2. The **prepare** workflow parses the issue, validates inputs, and posts instructions with a tamper-proof snapshot.
+3. An admin from the `approver-team` team comments `/approve` on the issue.
+4. A user comments `/execute-team-ops` to execute the change. The **execute** workflow verifies the snapshot, checks approval via [ApproveOps](https://github.com/joshjohanning/approveops), then adds or removes the team and closes the issue.
 
 ## Notes
 
