@@ -6,7 +6,7 @@
 - 🪓 Delete Repo (IssueOps)
 - 🔑 JIT Collaborator Access (IssueOps)
 - 🏷️ Labelops
-- ✨ [Reusable Worfklow repo onboarder](https://github.com/joshjohanning-org/reusable-workflow-issueops-onboarder) (IssueOps) (separate repository)
+- ✨ [Reusable Workflow repo onboarder](https://github.com/joshjohanning-org/reusable-workflow-issueops-onboarder) (IssueOps) (separate repository)
 
 ## General Features
 
