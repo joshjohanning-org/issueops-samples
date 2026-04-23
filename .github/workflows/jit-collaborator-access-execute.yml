@@ -79,7 +79,7 @@ jobs:
           script: |
             // Get the authenticated app's identity to verify snapshot comment author.
             const app = await github.rest.apps.getAuthenticated();
-            const expectedBotLogin = `${app.slug}[bot]`;
+            const expectedBotLogin = `${app.data.slug}[bot]`;
 
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,

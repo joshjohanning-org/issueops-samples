@@ -304,7 +304,42 @@ jobs:
             }
             const match = snapshotComment.body.match(/<!--\s*jit-access-snapshot:\s*(\{.*?\})\s*-->/s);
             if (!match) {
-              core.warning('Could not parse prepare snapshot — using issue body values.');
+              // Fail closed: malformed snapshot prevents using body values (prevents tampering).
+              const attentionLabel = 'access-needs-attention';
+              const attentionMarker = '<!-- jit-access-cleanup:malformed-snapshot -->';
+
+              core.warning(`Issue #${context.issue.number}: Snapshot comment exists but JSON is malformed. Flagging for manual intervention.`);
+
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: [attentionLabel],
+              });
+
+              const issueComments = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+              });
+
+              const alreadyFlagged = issueComments.some((comment) =>
+                typeof comment.body === 'string' && comment.body.includes(attentionMarker)
+              );
+
+              if (!alreadyFlagged) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body:
+                    `${attentionMarker}\n` +
+                    `Automated cleanup found a prepare snapshot comment for this JIT access request, but the JSON is malformed and cannot be parsed.\n\n` +
+                    `The issue has been labeled \`${attentionLabel}\` for manual review. Please verify the snapshot format and manually remove collaborator access if needed.`,
+                });
+              }
+
+              core.setFailed('Malformed prepare snapshot.');
               return;
             }
             const snapshot = JSON.parse(match[1]);
