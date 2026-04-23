@@ -1,0 +1,237 @@
+name: team-ops-execute
+
+run-name: 'Team Ops Execute: Issue #${{ github.event.issue.number }} by @${{ github.actor }}'
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  team-ops-execute:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request == null &&
+      (startsWith(github.event.comment.body, '/execute-team-ops') &&
+      contains(github.event.issue.labels.*.name, 'team-ops'))
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v6
+
+      - uses: actions/create-github-app-token@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v3
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Parse Issue
+        id: parser
+        uses: issue-ops/parser@cb7e2e4e5da701aad0e23e718bc4c91d442ca8ba # v5.0.0
+        with:
+          body: ${{ github.event.issue.body }}
+          issue-form-template: team-ops.yml
+
+      - name: Set env vars
+        env:
+          PARSED_JSON: ${{ steps.parser.outputs.json }}
+        run: |
+          ACTION=$(echo "$PARSED_JSON" | jq -r '.action')
+          TEAM_SLUG=$(echo "$PARSED_JSON" | jq -r '.team_slug')
+          REPOSITORY=$(echo "$PARSED_JSON" | jq -r '.repository')
+          PERMISSION=$(echo "$PARSED_JSON" | jq -r '.permission')
+
+          # Validate action
+          if [[ ! "$ACTION" =~ ^(add|remove)$ ]]; then
+            echo "::error::Invalid action: must be 'add' or 'remove'."
+            exit 1
+          fi
+
+          # Validate team slug: letters, numbers, hyphens (GitHub team slug format)
+          if [[ -z "$TEAM_SLUG" ]] || [[ ! "$TEAM_SLUG" =~ ^[a-zA-Z0-9][a-zA-Z0-9-]*$ ]]; then
+            echo "::error::Invalid team_slug: must contain only letters, numbers, and hyphens, and start with a letter or number."
+            exit 1
+          fi
+
+          # Validate repository: letters, numbers, dots, underscores, hyphens
+          if [[ -z "$REPOSITORY" ]] || [[ ! "$REPOSITORY" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::Invalid repository: must contain only letters, numbers, dots, underscores, and hyphens."
+            exit 1
+          fi
+
+          # Validate permission
+          if [[ ! "$PERMISSION" =~ ^(pull|triage|push|maintain|admin)$ ]]; then
+            echo "::error::Invalid permission."
+            exit 1
+          fi
+
+          echo "ACTION=$ACTION" >> $GITHUB_ENV
+          echo "TEAM_SLUG=$TEAM_SLUG" >> $GITHUB_ENV
+          echo "REPOSITORY=$REPOSITORY" >> $GITHUB_ENV
+          echo "PERMISSION=$PERMISSION" >> $GITHUB_ENV
+
+      - name: Verify fields match prepare snapshot
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const app = await github.rest.apps.getAuthenticated();
+            const expectedBotLogin = `${app.data.slug}[bot]`;
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const snapshotComments = comments
+              .filter(c => c.user.type === 'Bot' && c.user.login === expectedBotLogin && c.body.includes('<!-- team-ops-snapshot:'))
+              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            const snapshotComment = snapshotComments[0];
+
+            if (!snapshotComment) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `❌ Could not find the prepare snapshot comment. The prepare workflow may not have run, or the comment may have been deleted. Cannot proceed.`,
+              });
+              core.setFailed('No prepare snapshot found.');
+              return;
+            }
+
+            const match = snapshotComment.body.match(/<!--\s*team-ops-snapshot:\s*(\{.*?\})\s*-->/s);
+            if (!match) {
+              core.setFailed('Could not parse prepare snapshot JSON.');
+              return;
+            }
+
+            const snapshot = JSON.parse(match[1]);
+            const mismatches = [];
+            if (snapshot.action     !== process.env.ACTION)     mismatches.push(`action: approved \`${snapshot.action}\`, current \`${process.env.ACTION}\``);
+            if (snapshot.team_slug  !== process.env.TEAM_SLUG)  mismatches.push(`team_slug: approved \`${snapshot.team_slug}\`, current \`${process.env.TEAM_SLUG}\``);
+            if (snapshot.repository !== process.env.REPOSITORY) mismatches.push(`repository: approved \`${snapshot.repository}\`, current \`${process.env.REPOSITORY}\``);
+            if (snapshot.permission !== process.env.PERMISSION) mismatches.push(`permission: approved \`${snapshot.permission}\`, current \`${process.env.PERMISSION}\``);
+
+            if (mismatches.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `❌ The issue body was modified after the original request was submitted. The following fields no longer match the approved values:\n\n${mismatches.map(m => `- ${m}`).join('\n')}\n\nCannot proceed. Please open a new issue with the correct details.`,
+              });
+              core.setFailed('Issue body was modified after submission.');
+              return;
+            }
+
+            core.info('Fields match prepare snapshot — proceeding.');
+
+      - name: Rename issue
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const action = process.env.ACTION === 'add' ? 'Add' : 'Remove';
+            const suffix = process.env.ACTION === 'add'
+              ? ` (${process.env.PERMISSION})`
+              : '';
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              title: `Team Ops: ${action} ${process.env.TEAM_SLUG} → ${process.env.GITHUB_REPOSITORY_OWNER}/${process.env.REPOSITORY}${suffix}`
+            })
+
+      - name: ApproveOps
+        uses: joshjohanning/approveops@a52491aecc83cbdb8b1f5ffb534537bdad113a2e # v4.0.0
+        id: check-approval
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          approve-command: /approve
+          team-name: approver-team
+          fail-if-approval-not-found: true
+          post-successful-approval-comment: false
+
+      - name: Add team to repository
+        if: env.ACTION == 'add'
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.teams.addOrUpdateRepoPermissionsInOrg({
+              org: process.env.GITHUB_REPOSITORY_OWNER,
+              team_slug: process.env.TEAM_SLUG,
+              owner: process.env.GITHUB_REPOSITORY_OWNER,
+              repo: process.env.REPOSITORY,
+              permission: process.env.PERMISSION,
+            })
+
+      - name: Remove team from repository
+        if: env.ACTION == 'remove'
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.teams.removeRepoInOrg({
+              org: process.env.GITHUB_REPOSITORY_OWNER,
+              team_slug: process.env.TEAM_SLUG,
+              owner: process.env.GITHUB_REPOSITORY_OWNER,
+              repo: process.env.REPOSITORY,
+            })
+
+      - name: Add completed label and close issue
+        if: ${{ success() }}
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const doneLabel = process.env.ACTION === 'add' ? 'team-added' : 'team-removed';
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ["team-ops", doneLabel],
+              state: "closed"
+            })
+
+      - name: Post successful message
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        if: ${{ success() }}
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const actionPast = process.env.ACTION === 'add' ? 'added to' : 'removed from';
+            const emoji = process.env.ACTION === 'add' ? '✅' : '🗑️';
+            const permissionLine = process.env.ACTION === 'add'
+              ? `\n- **Permission:** \`${process.env.PERMISSION}\``
+              : '';
+
+            let commentBody
+            commentBody = `${emoji} Team has been successfully ${actionPast} the repository!
+
+            - **Team:** \`${process.env.TEAM_SLUG}\`
+            - **Repository:** \`${process.env.GITHUB_REPOSITORY_OWNER}/${process.env.REPOSITORY}\`${permissionLine}
+            `
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })
+
+      - name: Post failure message
+        if: ${{ failure() && steps.check-approval.outputs.approved == 'true' }}
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          script: |
+            let commentBody
+            commentBody = `😢 The team access change could not be completed. Please review the [action logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information.`
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody.replace(/  +/g, '')
+            })
