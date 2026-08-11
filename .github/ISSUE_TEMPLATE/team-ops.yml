@@ -1,0 +1,52 @@
+name: 👥 Team Repo Access
+description: Add or remove a team's access to a repository
+title: "Team Repo Access"
+labels: ["team-ops"]
+body:
+  - type: dropdown
+    id: action
+    attributes:
+      label: Action
+      description: Do you want to add or remove a team's access to a repository?
+      options:
+        - add
+        - remove
+    validations:
+      required: true
+  - type: input
+    id: team_slug
+    attributes:
+      label: Team Slug
+      description: "The slug of the team (e.g. `my-team`). This is the URL-friendly name of the team."
+      placeholder: my-team
+    validations:
+      required: true
+  - type: input
+    id: repository
+    attributes:
+      label: Repository
+      description: "The name of the repository (repo name only, not the full org/repo)"
+      placeholder: my-repo
+    validations:
+      required: true
+  - type: dropdown
+    id: permission
+    attributes:
+      label: Permission
+      description: "The permission level to grant the team (only applies when adding a team; ignored when removing)"
+      options:
+        - pull
+        - triage
+        - push
+        - maintain
+        - admin
+    validations:
+      required: true
+  - type: textarea
+    id: reason
+    attributes:
+      label: Reason
+      description: Why is this team access change needed?
+      placeholder: Describe the reason for this change...
+    validations:
+      required: true
